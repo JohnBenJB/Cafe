@@ -1,0 +1,26 @@
+{
+  "canisters": {
+    "Cafe_backend": {
+      "main": "src/Cafe_backend/main.mo",
+      "type": "motoko"
+    },
+    "Cafe_frontend": {
+      "dependencies": [
+        "Cafe_backend"
+      ],
+      "source": [
+        "src/Cafe_frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "Cafe_frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
