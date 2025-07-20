@@ -47,4 +47,4 @@ This project is an official submission to the **World Computer Hacker League 202
 Want to contribute? We’ve got a seat saved for you.
 
 ```bash
-git clone https://github.com/your-username/cafe.git
+git clone https://github.com/JohnBenJB/cafe.git
