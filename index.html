@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Café — The AI-Native, On-Chain Dev Hub</title>
+    <link rel="icon" type="image/png" href="logo.png" />
+
+    <style>
+      body {
+        margin: 0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #FFFEE0;
+        color: #263238;
+      }
+
+      .navbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 2rem;
+        background-color: #263238;
+        color: white;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+      }
+
+      .logo {
+        height: 40px;
+      }
+
+      .nav-links {
+        list-style: none;
+        display: flex;
+        gap: 2rem;
+      }
+
+      .nav-links li a {
+        color: #FFFEE0;
+        text-decoration: none;
+        font-weight: bold;
+        transition: color 0.3s ease;
+      }
+
+      .nav-links li a:hover {
+        color: #E1760C;
+      }
+
+      .hamburger {
+        display: none;
+        flex-direction: column;
+        gap: 5px;
+        background: none;
+        border: none;
+        cursor: pointer;
+      }
+
+      .hamburger .bar {
+        width: 25px;
+        height: 3px;
+        background-color: #FFFEE0;
+        border-radius: 2px;
+      }
+
+      @media (max-width: 768px) {
+        .nav-links {
+          position: absolute;
+          top: 70px;
+          right: 0;
+          background-color: #263238;
+          flex-direction: column;
+          width: 100%;
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.3s ease-in-out;
+        }
+
+        .nav-links.open {
+          max-height: 500px; /* Arbitrary large value */
+        }
+
+        .hamburger {
+          display: flex;
+        }
+      }
+/* Hamburger Active State (Animated X) */
+.hamburger.active .bar:nth-child(1) {
+  transform: rotate(45deg) translate(5px, 5px);
+}
+.hamburger.active .bar:nth-child(2) {
+  opacity: 0;
+}
+.hamburger.active .bar:nth-child(3) {
+  transform: rotate(-45deg) translate(6px, -6px);
+}
+
+      .section {
+        padding: 4rem 2rem;
+        opacity: 1;
+        transform: none;
+      }
+
+      .section.dark {
+        background-color: #4B5D67;
+        color: #FFFEE0;
+      }
+
+      .hero {
+        background-color: #E1760C;
+        color: #FFFEE0;
+        text-align: center;
+        padding: 6rem 2rem;
+      }
+
+      .cta-button {
+        display: inline-block;
+        margin-top: 1.5rem;
+        padding: 0.75rem 1.5rem;
+        background-color: #263238;
+        color: #FFFEE0;
+        text-decoration: none;
+        font-weight: bold;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+      }
+
+      .cta-button:hover {
+        background-color: #4B5D67;
+      }
+
+      .footer {
+        text-align: center;
+        padding: 2rem;
+        background-color: #263238;
+        color: #FFFEE0;
+        font-size: 0.9rem;
+      }
+
+      .fade-in {
+        opacity: 0;
+        transform: translateY(40px);
+        transition: all 0.6s ease-out;
+      }
+
+      .fade-in.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="navbar">
+      <img src="logo.png" alt="Café Logo" class="logo" />
+
+      <!-- Hamburger Toggle -->
+      <button id="nav-toggle" class="hamburger" aria-label="Toggle navigation">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+
+      <!-- Nav Links -->
+      <nav>
+        <ul class="nav-links">
+          <li><a href="#why">Why Café?</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#powered">Powered By</a></li>
+          <li><a href="#coming">Coming Soon</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="hero-content">
+        <h1>☕ Café</h1>
+        <p class="tagline">The AI-Native, On-Chain Dev Hub</p>
+        <p class="subtagline">✨ Building the Self-Writing Internet</p>
+        <a href="#features" class="cta-button">Explore Features</a>
+      </div>
+    </section>
+
+    <section id="why" class="section">
+      <h2>🌐 Why Café?</h2>
+      <p>
+        Traditional development tools are fragmented and centralized. GitHub for repos, Slack for chat,
+        Notion for docs, AI tools in another tab. Café brings everything together at one virtual table.
+      </p>
+      <ul class="features-list">
+        <li>Host code on-chain using Internet Computer canisters</li>
+        <li>Collaborate in real-time, Google Docs-style</li>
+        <li>Live AI assistance from Caffeine AI agents</li>
+        <li>Context-aware onboarding for new contributors</li>
+        <li>Track contributions via Principal IDs</li>
+        <li>Run projects as modular DAOs with transparent governance</li>
+      </ul>
+    </section>
+
+    <section id="features" class="section dark">
+      <h2>🔥 Features</h2>
+      <ul class="features-list">
+        <li>Real-Time Pair Programming with AI and peers</li>
+        <li>On-Chain Git alternative for decentralized hosting</li>
+        <li>AI-Powered PR Reviews, Commit Suggestions, and Code Docs</li>
+        <li>Contributor Transparency via Principal Identity</li>
+        <li>DAO-Based Project Management</li>
+        <li>Instant dev table collaboration invites</li>
+      </ul>
+    </section>
+
+    <section id="powered" class="section">
+      <h2>🧠 Powered by</h2>
+      <ul class="powered-list">
+        <li>Internet Computer Protocol (ICP)</li>
+        <li>Caffeine AI — our in-house LLM assistant engine</li>
+        <li>Canister Smart Contracts</li>
+        <li>Internet Identity</li>
+      </ul>
+    </section>
+
+    <section id="coming" class="section dark">
+      <h2>🚀 Coming Soon</h2>
+      <ul class="coming-list">
+        <li>Developer profiles and project badges</li>
+        <li>Web3-native CI/CD pipelines</li>
+        <li>Mobile-friendly collaborative coding</li>
+        <li>Tokenized contributor recognition</li>
+      </ul>
+    </section>
+
+    <footer class="footer">
+      <p>&copy; 2025 Café. Built on the Internet Computer. All rights reserved.</p>
+    </footer>
+
+    <script>
+       document.addEventListener("DOMContentLoaded", () => {
+    const navToggle = document.getElementById("nav-toggle");
+    const navLinks = document.querySelector(".nav-links");
+
+    navToggle.addEventListener("click", () => {
+      navLinks.classList.toggle("open");
+    });
+  });
+  document.addEventListener("DOMContentLoaded", () => {
+  const navToggle = document.getElementById("nav-toggle");
+  const navLinks = document.querySelector(".nav-links");
+
+  navToggle.addEventListener("click", () => {
+    navLinks.classList.toggle("open");
+    navToggle.classList.toggle("active");
+  });
+
+  // Fade-in animation for sections on scroll
+  const faders = document.querySelectorAll(".section");
+
+  const appearOptions = {
+    threshold: 0.1,
+    rootMargin: "0px 0px -50px 0px"
+  };
+
+  const appearOnScroll = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add("visible");
+      observer.unobserve(entry.target);
+    });
+  }, appearOptions);
+
+  faders.forEach(section => {
+    section.classList.add("fade-in");
+    appearOnScroll.observe(section);
+  });
+});
+
+    </script>
+  </body>
+</html>
