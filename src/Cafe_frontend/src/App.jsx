@@ -1,21 +1,26 @@
-import { useState } from "react";
-import Chat from "./Chat";
+import React from 'react';
+import Navbar from './components/Navbar';
+import Hero from './components/Hero';
+import Features from './components/Features';
+import HowItWorks from './components/HowItWorks';
+import Pricing from './components/Pricing';
+import Community from './components/Community';
+import CTA from './components/CTA';
+import Footer from './components/Footer';
+import './App.css';
 
 function App() {
-  // const [greeting, setGreeting] = useState('');
-  // function handleSubmit(event) {
-  //   event.preventDefault();
-  //   const name = event.target.elements.name.value;
-  //   Cafe_backend.greet(name).then((greeting) => {
-  //     setGreeting(greeting);
-  //   });
-  //   return false;
-  // }
-
   return (
-    <main>
-      <Chat />
-    </main>
+    <div className="App">
+      <Navbar />
+      <Hero />
+      <Features />
+      <HowItWorks />
+      <Pricing />
+      <Community />
+      <CTA />
+      <Footer />
+    </div>
   );
 }
 
