@@ -1,18 +1,38 @@
 {
   "canisters": {
-    "Cafe_backend": {
-      "main": "src/Cafe_backend/main.mo",
-      "type": "motoko"
+    "authentication": {
+        "type": "motoko",
+        "main": "src/authentication/main.mo"
+      },
+    "table_management": {
+        "type": "motoko",
+        "main": "src/table_management/main.mo"
+      },
+    "collaboration": {
+        "type": "motoko",
+        "main": "src/collaboration/main.mo"
+      },
+    "storage": {
+        "type": "motoko",
+        "main": "src/storage/main.mo"
     },
-    "Cafe_frontend": {
+    "communication": {
+        "type": "motoko",
+        "main": "src/communication/main.mo"
+    },
+    "frontend": {
       "dependencies": [
-        "Cafe_backend"
+        "authentication",
+        "table_management",
+        "collaboration",
+        "storage",
+        "communication"
       ],
       "source": [
-        "src/Cafe_frontend/dist"
+        "frontend/dist"
       ],
       "type": "assets",
-      "workspace": "Cafe_frontend"
+      "workspace": "frontend"
     }
   },
   "defaults": {
