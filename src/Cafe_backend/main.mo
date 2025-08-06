@@ -6,6 +6,7 @@ import Hash "mo:base/Hash";
 import Nat "mo:base/Nat";
 import Option "mo:base/Option";
 
+//actor
 actor {
   // User record
   public type User = {
