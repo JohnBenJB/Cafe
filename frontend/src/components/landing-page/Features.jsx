@@ -30,20 +30,20 @@ const Features = () => {
 
   const features = [
     {
-      icon: "👥",
-      title: "Real-time collaborative IDE",
+      icon: "",
+      title: "👥 Real-time collaborative IDE",
       description:
         "Code together instantly with AI and peers. Share screens, edit simultaneously, and debug collaboratively in real-time.",
     },
     {
-      icon: "⛓️",
-      title: "On-Chain Git Alternative",
+      icon: "",
+      title: "⛓️ On-Chain Git Alternative",
       description:
         "Decentralized hosting that puts you in control. No more centralized platforms - your code, your rules, on the blockchain.",
     },
     {
-      icon: "🤖",
-      title: "AI-Powered Reviews",
+      icon: "",
+      title: "🤖 AI-Powered Reviews",
       description:
         "Smart PR reviews, intelligent commit suggestions, and automated documentation. Let AI handle the routine, you focus on innovation.",
     },

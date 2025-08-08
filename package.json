@@ -13,6 +13,6 @@
   },
   "type": "module",
   "workspaces": [
-    "src/Cafe_frontend"
+    "frontend"
   ]
 }

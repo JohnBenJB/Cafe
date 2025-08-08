@@ -264,8 +264,6 @@ const Hero = () => {
             <img src="/cafe-hero.png" alt="Cafe" />
           </div>
         </div>
-
-        <div className="hero-visual"></div>
       </div>
     </section>
   );
