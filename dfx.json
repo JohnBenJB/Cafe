@@ -1,25 +1,25 @@
 {
   "canisters": {
     "authentication": {
-        "type": "motoko",
-        "main": "src/authentication/main.mo"
-      },
+      "type": "motoko",
+      "main": "src/authentication/main.mo"
+    },
     "table_management": {
-        "type": "motoko",
-        "main": "src/table_management/main.mo",
-        "dependencies": ["authentication"]
-      },
+      "type": "motoko",
+      "main": "src/table_management/main.mo",
+      "dependencies": ["authentication"]
+    },
     "collaboration": {
-        "type": "motoko",
-        "main": "src/collaboration/main.mo"
-      },
+      "type": "motoko",
+      "main": "src/collaboration/main.mo"
+    },
     "storage": {
-        "type": "motoko",
-        "main": "src/storage/main.mo"
+      "type": "motoko",
+      "main": "src/storage/main.mo"
     },
     "communication": {
-        "type": "motoko",
-        "main": "src/communication/main.mo"
+      "type": "motoko",
+      "main": "src/communication/main.mo"
     },
     "frontend": {
       "dependencies": [
@@ -29,9 +29,7 @@
         "storage",
         "communication"
       ],
-      "source": [
-        "frontend/dist"
-      ],
+      "source": ["frontend/dist"],
       "type": "assets",
       "workspace": "frontend"
     }

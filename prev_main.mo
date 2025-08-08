@@ -7,6 +7,8 @@ import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
 import Option "mo:base/Option";
 
+//actor
+actor {
 persistent actor {
   // User record
   public type User = {
