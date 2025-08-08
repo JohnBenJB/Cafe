@@ -1,6 +1,6 @@
 module {
   public type User = {
-    id : Nat;
+    // id : Nat;
     username : Text;
     email : Text;
     github : Text;

@@ -6,7 +6,8 @@
       },
     "table_management": {
         "type": "motoko",
-        "main": "src/table_management/main.mo"
+        "main": "src/table_management/main.mo",
+        "dependencies": ["authentication"]
       },
     "collaboration": {
         "type": "motoko",

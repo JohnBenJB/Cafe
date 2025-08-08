@@ -5,7 +5,6 @@ import Array "mo:base/Array";
 import Hash "mo:base/Hash";
 import Nat "mo:base/Nat";
 import Nat32 "mo:base/Nat32";
-import Nat64 "mo:base/Nat64";
 import Option "mo:base/Option";
 
 persistent actor {
@@ -24,7 +23,7 @@ persistent actor {
   public type Table = {
     id : Nat;
     title : Text;
-    seats : [Nat]; // List of user ids
+    tableCollaborators : [Nat]; // List of user ids
   };
 
   // Helper type for join requests
@@ -84,7 +83,7 @@ persistent actor {
   
 
   private func hashTuple(t : (Nat, Nat)) : Hash.Hash {
-    customHash(t.0) ^ customHash(t.1)
+    Hash.hash(t.0) ^ Hash.hash(t.1)
   };
   
   private func equalTuple(a : (Nat, Nat), b : (Nat, Nat)) : Bool {
@@ -216,7 +215,7 @@ persistent actor {
         let table : Table = {
           id = tableId;
           title = title;
-          seats = [user.id];
+          tableCollaborators = [user.id];
         };
         
         tablesById.put(tableId, table);
@@ -330,14 +329,14 @@ persistent actor {
         usersByPrincipal.put(caller, updatedUser);
         usersById.put(user.id, updatedUser);
         
-        // Remove caller's userId from the table's seats
+        // Remove caller's userId from the table's tableCollaborators
         switch (tablesById.get(tableId)) {
           case null "Table not found.";
           case (?table) {
             let updatedTable : Table = {
               id = table.id;
               title = table.title;
-              seats = Array.filter<Nat>(table.seats, func (uid) = uid != user.id);
+              tableCollaborators = Array.filter<Nat>(table.tableCollaborators, func (uid) = uid != user.id);
             };
             tablesById.put(tableId, updatedTable);
             "Left the table successfully."
@@ -365,7 +364,7 @@ persistent actor {
         };
         
         // Check if user is already in the table
-        if (arrayContains<Nat>(table.seats, userId, Nat.equal)) {
+        if (arrayContains<Nat>(table.tableCollaborators, userId, Nat.equal)) {
           return "User is already in this table.";
         };
         
@@ -393,18 +392,18 @@ persistent actor {
         switch (pendingJoinRequests.get((userId, tableId))) {
           case null "No pending request found.";
           case (?inviter) {
-            // Add user to table's seats
+            // Add user to table's tableCollaborators
             switch (tablesById.get(tableId)) {
               case null "Table not found.";
               case (?table) {
-                if (arrayContains<Nat>(table.seats, userId, Nat.equal)) {
+                if (arrayContains<Nat>(table.tableCollaborators, userId, Nat.equal)) {
                   return "Already joined this table.";
                 };
                 
                 let updatedTable : Table = {
                   id = table.id;
                   title = table.title;
-                  seats = Array.append(table.seats, [userId]);
+                  tableCollaborators = Array.append(table.tableCollaborators, [userId]);
                 };
                 tablesById.put(tableId, updatedTable);
                 
@@ -496,7 +495,7 @@ persistent actor {
       case null [];
       case (?table) {
         Array.mapFilter<Nat, User>(
-          table.seats,
+          table.tableCollaborators,
           func(userId) = usersById.get(userId)
         )
       }

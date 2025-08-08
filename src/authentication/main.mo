@@ -1,44 +1,32 @@
 import Types "./types";
 import TrieMap "mo:base/TrieMap";
 import Iter "mo:base/Iter";
-import Array "mo:base/Array";
-import Hash "mo:base/Hash";
-import Nat "mo:base/Nat";
 import Principal "mo:base/Principal";
 
 persistent actor Authentication {
   type User = Types.User;
   //the following variables are of necessity, stable
-  private var usersEntries : [(Principal, User)] = [];
-  private var usersByIdEntries : [(Nat, User)] = [];
-  private var nextId : Nat = 1;
+  private stable var usersEntries : [(Principal, User)] = [];
+  // private stable var usersByIdEntries : [(Nat, User)] = [];
+  // private stable var nextId : Nat = 1;
 
   // Initialize TrieMaps
   private transient let usersByPrincipal = TrieMap.fromEntries<Principal, User>(
     usersEntries.vals(), Principal.equal, Principal.hash
-  );
-  
-  private transient let usersById = TrieMap.fromEntries<Nat, User>(
-    usersByIdEntries.vals(), Nat.equal, Hash.hash
-  );
+  ); 
+  // private transient let usersById = TrieMap.fromEntries<Nat, User>(
+  //   usersByIdEntries.vals(), Nat.equal, Hash.hash
+  // );
 
   // System functions for upgrades
   system func preupgrade() {
     usersEntries := Iter.toArray(usersByPrincipal.entries());
-    usersByIdEntries := Iter.toArray(usersById.entries());
+    // usersByIdEntries := Iter.toArray(usersById.entries());
   };
 
   system func postupgrade() {
     usersEntries := [];
-    usersByIdEntries := [];
-  };
-
-  // Helper function to check if array contains element
-  private func arrayContains<T>(arr : [T], elem : T, equal : (T, T) -> Bool) : Bool {
-    switch (Array.find<T>(arr, func(x) = equal(x, elem))) {
-      case (?_) true;
-      case null false;
-    }
+    // usersByIdEntries := [];
   };
 
    // Register or update user profile with Internet Identity
@@ -56,17 +44,17 @@ persistent actor Authentication {
     };
     
     let existingUser = usersByPrincipal.get(caller);
-    let userId = switch(existingUser) {
-      case (?user) user.id;
-      case null {
-        let id = nextId;
-        nextId += 1;
-        id
-      }
-    };
+    // let userId = switch(existingUser) {
+    //   case (?user) user.id;
+    //   case null {
+    //     let id = nextId;
+    //     nextId += 1;
+    //     id
+    //   }
+    // };
     
     let user : User = {
-      id = userId;
+      // id = userId;
       username = username;
       email = email;
       github = github;
@@ -83,21 +71,21 @@ persistent actor Authentication {
     };
     
     usersByPrincipal.put(caller, user);
-    usersById.put(userId, user);
+    // usersById.put(userId, user);
     "Profile registered/updated successfully."
   };
 
   // Get current user profile - FIXED: removed query since we need msg.caller
+  //Functions for getting user profile(s)
   public shared(msg) func get_profile() : async ?User {
     usersByPrincipal.get(msg.caller)
   };
-
+  //Get all users
    public query func get_all_users() : async [User] {
-    Iter.toArray(usersById.vals())
+    Iter.toArray(usersByPrincipal.vals())
   };
-
-  // Get user by ID
-  public query func get_user_by_id(userId : Nat) : async ?User {
-    usersById.get(userId)
+  // Get user by Principal
+  public query func get_user_by_principal(userPrincipal : Principal) : async ?User {
+    usersByPrincipal.get(userPrincipal)
   };
 }
