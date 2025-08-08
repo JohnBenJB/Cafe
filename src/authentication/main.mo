@@ -3,17 +3,17 @@ import TrieMap "mo:base/TrieMap";
 import Iter "mo:base/Iter";
 import Principal "mo:base/Principal";
 
-persistent actor Authentication {
+actor Authentication {
   type User = Types.User;
   //the following variables are of necessity, stable
-  private stable var usersEntries : [(Principal, User)] = [];
+  stable var usersEntries : [(Principal, User)] = [];
   // private stable var usersByIdEntries : [(Nat, User)] = [];
   // private stable var nextId : Nat = 1;
 
   // Initialize TrieMaps
-  private transient let usersByPrincipal = TrieMap.fromEntries<Principal, User>(
+  let usersByPrincipal = TrieMap.fromEntries<Principal, User>(
     usersEntries.vals(), Principal.equal, Principal.hash
-  ); 
+  );
   // private transient let usersById = TrieMap.fromEntries<Nat, User>(
   //   usersByIdEntries.vals(), Nat.equal, Hash.hash
   // );
@@ -31,18 +31,18 @@ persistent actor Authentication {
 
    // Register or update user profile with Internet Identity
   public shared(msg) func register_or_update(
-    username : Text, 
-    email : Text, 
-    github : Text, 
+    username : Text,
+    email : Text,
+    github : Text,
     slack : Text
   ) : async Text {
     let caller = msg.caller;
-    
+
     // Validate input
     if (username == "" or email == "") {
       return "Username and email are required.";
     };
-    
+
     let existingUser = usersByPrincipal.get(caller);
     // let userId = switch(existingUser) {
     //   case (?user) user.id;
@@ -52,7 +52,7 @@ persistent actor Authentication {
     //     id
     //   }
     // };
-    
+
     let user : User = {
       // id = userId;
       username = username;
@@ -69,7 +69,7 @@ persistent actor Authentication {
         case null [];
       };
     };
-    
+
     usersByPrincipal.put(caller, user);
     // usersById.put(userId, user);
     "Profile registered/updated successfully."
