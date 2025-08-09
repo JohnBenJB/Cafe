@@ -91,7 +91,7 @@ actor TableManagement {
         ignore tablesById.remove(tableId);
         
         // Clean up pending requests for this table
-        let requestsToRemove = Array.mapFilter<((Nat, Nat), Principal), (Nat, Nat)>(
+        let requestsToRemove = Array.mapFilter<((Principal, Nat), Principal), (Nat, Nat)>(
           Iter.toArray(pendingJoinRequests.entries()),
           func((key, _)) = if (key.1 == tableId) ?key else null
         );
@@ -148,7 +148,7 @@ actor TableManagement {
               id = table.id;
               title = table.title;
               creator = table.creator;
-              tableCollaborators = Array.filter<Nat>(table.tableCollaborators, func (uid) = uid != user.id);
+              tableCollaborators = Array.filter<Principal>(table.tableCollaborators, func (uid) = uid != user.id);
             };
             tablesById.put(tableId, updatedTable);
             "Left the table successfully."
@@ -163,7 +163,7 @@ actor TableManagement {
     switch (tablesById.get(tableId)) {
       case null [];
       case (?table) {
-        Array.mapFilter<Nat, User>(
+        Array.mapFilter<Principal, User>(
           table.tableCollaborators,
           func(userPrincipal) = await Auth.get_user_by_principal(userPrincipal)
         )
@@ -187,7 +187,7 @@ actor TableManagement {
           return "You did not create this table.";
         };
         // Check if user is already in the table
-        if (arrayContains<Nat>(table.tableCollaborators, userPrincipal, Nat.equal)) {
+        if (arrayContains<Principal>(table.tableCollaborators, userPrincipal, Nat.equal)) {
           return "User is already in this table.";
         };
         // Check if request already exists
@@ -217,7 +217,7 @@ actor TableManagement {
             switch (tablesById.get(tableId)) {
               case null "Table not found.";
               case (?table) {
-                if (arrayContains<Nat>(table.tableCollaborators, userPrincipal, Nat.equal)) {
+                if (arrayContains<Principal>(table.tableCollaborators, userPrincipal, Nat.equal)) {
                   return "Already joined this table.";
                 };
                 let updatedTable : Table = {
