@@ -65,7 +65,7 @@ actor TableManagement {
         };
         tablesById.put(tableId, table);
         // Update user's tablesCreated
-        await Auth.update_user_add_table(caller, tableId, "tablesCreated");
+        ignore await Auth.update_user_add_table(caller, tableId, "tablesCreated");
         ?table
       }
     }
@@ -87,10 +87,10 @@ actor TableManagement {
           case (?table) {
           // Remove tableId from tablesJoined of all users
             for (principal in table.tableCollaborators.vals()) {
-              await Auth.update_user_remove_table(principal, tableId, "tablesJoined");
+              ignore await Auth.update_user_remove_table(principal, tableId, "tablesJoined");
             };
             // Remove tableId from caller's tablesCreated
-            await Auth.update_user_remove_table(caller, tableId, "tablesCreated");
+            ignore await Auth.update_user_remove_table(caller, tableId, "tablesCreated");
             ignore tablesById.remove(tableId);
             
             // Clean up pending requests for this table
@@ -143,7 +143,7 @@ actor TableManagement {
           return "You have not joined this table.";
         };
         // Remove tableId from caller's tablesJoined
-        await Auth.update_user_remove_table(caller, tableId, "tablesjoined");
+        ignore await Auth.update_user_remove_table(caller, tableId, "tablesjoined");
 
         // Remove caller's userId from the table's tableCollaborators
         switch (tablesById.get(tableId)) {
@@ -237,7 +237,7 @@ actor TableManagement {
                 tablesById.put(tableId, updatedTable);
 
                 // Add tableId to user's tablesJoined
-                await Auth.update_user_add_table(caller, tableId, "tablesJoined");
+                ignore await Auth.update_user_add_table(caller, tableId, "tablesJoined");
                 // Remove pending request
                 ignore pendingJoinRequests.remove((userPrincipal, tableId));
                 "Joined the table successfully."
@@ -250,7 +250,7 @@ actor TableManagement {
   };
 
   // Cancel a join request
-  public shared(msg) func cancel_join_request(userPrincipal : Nat, tableId : Nat) : async Text {
+  public shared(msg) func cancel_join_request(userPrincipal : Principal, tableId : Nat) : async Text {
     let caller = msg.caller;
     switch (await Auth.get_profile()) {
       case null "User not found.";
@@ -294,7 +294,7 @@ actor TableManagement {
             func(((recipient, tableIdAssociated), sender)) {
               if (tableIdAssociated == tableId ) {
                 //Check is recipient user exists...may be unnecessary since cleanup is done after user deleted
-                switch (Auth.get_profile()) {
+                switch (await Auth.get_profile()) {
                   case (?recipient_user) ?recipient_user.username;
                   case null null;
                 }
@@ -318,7 +318,10 @@ actor TableManagement {
           func(((recipient, tableIdAssociated), sender)) {
             if (recipient == caller) {
               let table = tablesById.get(tableIdAssociated);
-              table.title
+              switch (table) {
+                case null "Table not found";
+                case (?table) table.title
+              }
             }
             else null
           }
