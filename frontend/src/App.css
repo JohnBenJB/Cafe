@@ -924,7 +924,7 @@ pre {
 .footer-content {
   display: grid;
   grid-template-columns: 1fr 2fr;
-  gap: 64px;
+  gap: 10rem 160px;
   margin-bottom: 48px;
 }
 
@@ -939,9 +939,9 @@ pre {
 }
 
 .footer-links {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  display: flex;
   gap: 32px;
+  justify-content: space-between;
 }
 
 .footer-title {
@@ -957,6 +957,7 @@ pre {
   text-decoration: none;
   margin-bottom: 8px;
   transition: color 0.3s ease;
+  width: fit-content;
 }
 
 .footer-link:hover {
