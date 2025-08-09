@@ -641,7 +641,19 @@ pre {
 }
 
 /* How It Works Section */
+.how-it-works-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 48px;
+  margin-top: 80px;
 
+  & .how-it-works-image > img {
+    object-fit: cover;
+    width: 100%;
+    border-radius: 16px;
+  }
+}
 .steps-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
