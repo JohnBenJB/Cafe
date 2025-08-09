@@ -82,23 +82,28 @@ actor TableManagement {
           return "You did not create this table or table does not exist.";
         };
         let table = tablesById.get(tableId);
-        // Remove tableId from tablesJoined of all users
-        for (principal in table.tableCollaborators) {
-          await Auth.update_user_remove_table(principal, tableId, "tablesJoined");
-        };
-        // Remove tableId from caller's tablesCreated
-        await Auth.update_user_remove_table(caller, tableId, "tablesCreated");
-        ignore tablesById.remove(tableId);
-        
-        // Clean up pending requests for this table
-        let requestsToRemove = Array.mapFilter<((Principal, Nat), Principal), (Nat, Nat)>(
-          Iter.toArray(pendingJoinRequests.entries()),
-          func((key, _)) = if (key.1 == tableId) ?key else null
-        );
-        for (key in requestsToRemove.vals()) {
-          ignore pendingJoinRequests.remove(key);
-        };
-        "Table deleted successfully."
+        switch (table) {
+          case null "Table not found";
+          case (?table) {
+          // Remove tableId from tablesJoined of all users
+            for (principal in table.tableCollaborators) {
+              await Auth.update_user_remove_table(principal, tableId, "tablesJoined");
+            };
+            // Remove tableId from caller's tablesCreated
+            await Auth.update_user_remove_table(caller, tableId, "tablesCreated");
+            ignore tablesById.remove(tableId);
+            
+            // Clean up pending requests for this table
+            let requestsToRemove = Array.mapFilter<((Principal, Nat), Principal), (Nat, Nat)>(
+              Iter.toArray(pendingJoinRequests.entries()),
+              func((key, _)) = if (key.1 == tableId) ?key else null
+            );
+            for (key in requestsToRemove.vals()) {
+              ignore pendingJoinRequests.remove(key);
+            };
+            "Table deleted successfully."
+          }
+        }
       }
     }
   };
@@ -148,7 +153,7 @@ actor TableManagement {
               id = table.id;
               title = table.title;
               creator = table.creator;
-              tableCollaborators = Array.filter<Principal>(table.tableCollaborators, func (uid) = uid != user.id);
+              tableCollaborators = Array.filter<Principal>(table.tableCollaborators, func (upcl) = upcl != user.principal);
             };
             tablesById.put(tableId, updatedTable);
             "Left the table successfully."
@@ -159,7 +164,7 @@ actor TableManagement {
   };
 
   // Get users in a specific table
-  public query func get_table_users(tableId : Nat) : async [User] {
+  public shared func get_table_users(tableId : Nat) : async [User] {
     switch (tablesById.get(tableId)) {
       case null [];
       case (?table) {
@@ -187,16 +192,19 @@ actor TableManagement {
           return "You did not create this table.";
         };
         // Check if user is already in the table
-        if (arrayContains<Principal>(table.tableCollaborators, userPrincipal, Nat.equal)) {
+        if (arrayContains<Principal>(table.tableCollaborators, userPrincipal, Principal.equal)) {
           return "User is already in this table.";
         };
         // Check if request already exists
-        if (Option.isSome(pendingJoinRequests.get((userPrincipal, tableId)))) {
-          return "Join request already exists.";
+        switch(pendingJoinRequests.get((userPrincipal, tableId))) {
+          case null {
+            pendingJoinRequests.put((userPrincipal, tableId), caller);
+            "Join request sent successfully."
+          };
+          case (?requests) "Join request already exists.";
         };
         // Add pending request
-        pendingJoinRequests.put((userPrincipal, tableId), caller);
-        "Join request sent successfully."
+
       }
     }
   };
@@ -217,7 +225,7 @@ actor TableManagement {
             switch (tablesById.get(tableId)) {
               case null "Table not found.";
               case (?table) {
-                if (arrayContains<Principal>(table.tableCollaborators, userPrincipal, Nat.equal)) {
+                if (arrayContains<Principal>(table.tableCollaborators, userPrincipal, Principal.equal)) {
                   return "Already joined this table.";
                 };
                 let updatedTable : Table = {
@@ -260,7 +268,7 @@ actor TableManagement {
   };
 
   //Reject a join request
-  public shared(msg) func reject_join_request(tableId : Nat) {
+  public shared(msg) func reject_join_request(tableId : Nat) : async Text {
     let caller = msg.caller;
     switch (await Auth.get_profile()) {
       case null "User not found";
@@ -286,7 +294,7 @@ actor TableManagement {
             func(((recipient, tableIdAssociated), sender)) {
               if (tableIdAssociated == tableId ) {
                 //Check is recipient user exists...may be unnecessary since cleanup is done after user deleted
-                switch (usersByPrincipal.get(recipient)) {
+                switch (Auth.get_profile()) {
                   case (?recipient_user) ?recipient_user.username;
                   case null null;
                 }
@@ -300,7 +308,7 @@ actor TableManagement {
     }
   };
   // Get all pending requests recieved by caller
-  public shared(msg) func get_pending_recieved_requests() : async [(Nat, Nat, Text)] {
+  public shared(msg) func get_pending_recieved_requests() : async [Text] {
     let caller = msg.caller;
     switch (await Auth.get_profile()) {
       case null [];
