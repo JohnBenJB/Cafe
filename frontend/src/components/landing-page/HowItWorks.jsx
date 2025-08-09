@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 
 const HowItWorks = () => {
   const stepsRef = useRef(null);
@@ -8,11 +8,11 @@ const HowItWorks = () => {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            const steps = entry.target.querySelectorAll('.step');
+            const steps = entry.target.querySelectorAll(".step");
             steps.forEach((step, index) => {
               setTimeout(() => {
-                step.style.opacity = '1';
-                step.style.transform = 'translateY(0)';
+                step.style.opacity = "1";
+                step.style.transform = "translateY(0)";
               }, index * 300);
             });
           }
@@ -30,20 +30,21 @@ const HowItWorks = () => {
 
   const steps = [
     {
-      number: '01',
-      title: 'Pull Up a Table',
-      description: 'Create your collaborative workspace and authenticate with Internet Identity. Your decentralized dev environment is ready in seconds.'
+      number: "01",
+      title: "Pull Up a Table",
+      description:
+        "Sign in with Internet Identity or GitHub. Create a Table or Import Repo",
     },
     {
-      number: '02',
-      title: 'Invite Your Team',
-      description: 'Send instant invitations to collaborators. They join your table with full access to real-time coding, AI assistance, and project management tools.'
+      number: "02",
+      title: "Code Together",
+      description: "Write code, chat with AI, and deploy to ICP.",
     },
     {
-      number: '03',
-      title: 'Brew Something Great',
-      description: 'Code together with AI-powered reviews, deploy to ICP, and manage your project through decentralized governance. Ship faster, ship better.'
-    }
+      number: "03",
+      title: "Govern Your Project",
+      description: "Review code, vote on proposals, and manage your project.",
+    },
   ];
 
   return (
@@ -51,9 +52,11 @@ const HowItWorks = () => {
       <div className="container">
         <div className="section-header">
           <h2 className="section-title">How Cafe Works</h2>
-          <p className="section-subtitle">From setup to deployment in three simple steps</p>
+          <p className="section-subtitle">
+            From setup to deployment in three simple steps
+          </p>
         </div>
-        
+
         <div className="steps-container" ref={stepsRef}>
           {steps.map((step, index) => (
             <div key={index} className="step">
