@@ -2,6 +2,7 @@ import Types "./types";
 import TrieMap "mo:base/TrieMap";
 import Iter "mo:base/Iter";
 import Principal "mo:base/Principal";
+import Array "mo:base/Array";
 
 actor Authentication {
   type User = Types.User;
@@ -73,6 +74,68 @@ actor Authentication {
     usersByPrincipal.put(caller, user);
     // usersById.put(userId, user);
     "Profile registered/updated successfully."
+  };
+
+  // update user profile; to be used by other backend canisters
+  public shared func update_user_add_table(
+    principal : Principal,
+    tableId : Nat,
+    tableType: Text,
+  ) : async Text {
+    switch (usersByPrincipal.get(principal)) {
+      case null return "User not found.";
+      case (?user) {
+        let updatedUser : User = {
+          username = user.username;
+          email = user.email;
+          github = user.github;
+          slack = user.slack;
+          principal = user.principal;
+          tablesCreated = switch (tableType) {
+            case "tablesJoined" user.tablesCreated;
+            case "tablesCreated" Array.append(user.tablesCreated, [tableId]);
+            case _ user.tablesCreated
+          };
+          tablesJoined = switch (tableType) {
+            case "tablesJoined" Array.append(user.tablesJoined, [tableId]);
+            case "tablesCreated" user.tablesJoined;
+            case _ user.tablesCreated
+          }
+        };
+        usersByPrincipal.put(principal, updatedUser);
+        return "User successfully updated"
+      }
+    }
+  };
+  public shared func update_user_remove_table(
+    principal : Principal,
+    tableId : Nat,
+    tableType: Text,
+  ) : async Text {
+    switch (usersByPrincipal.get(principal)) {
+      case null return "User not found.";
+      case (?user) {
+        let updatedUser : User = {
+          username = user.username;
+          email = user.email;
+          github = user.github;
+          slack = user.slack;
+          principal = user.principal;
+          tablesCreated = switch (tableType) {
+            case "tablesJoined" user.tablesCreated;
+            case "tablesCreated" Array.filter<Nat>(user.tablesCreated, func (id) = id != tableId);
+            case _ user.tablesCreated
+          };
+          tablesJoined = switch (tableType) {
+            case "tablesJoined" Array.filter<Nat>(user.tablesJoined, func (id) = id != tableId);
+            case "tablesCreated" user.tablesJoined;
+            case _ user.tablesCreated
+          }
+        };
+        usersByPrincipal.put(principal, updatedUser);
+        return "User successfully updated"
+      }
+    }
   };
 
   // Get current user profile - FIXED: removed query since we need msg.caller

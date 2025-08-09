@@ -62,19 +62,8 @@ actor TableManagement {
           tableCollaborators = [caller];
         };
         tablesById.put(tableId, table);
-
         // Update user's tablesCreated
-        let updatedUser : User = {
-          username = user.username;
-          email = user.email;
-          github = user.github;
-          slack = user.slack;
-          principal = user.principal;
-          tablesCreated = Array.append(user.tablesCreated, [tableId]);
-          tablesJoined = user.tablesJoined;
-        };
-        usersByPrincipal.put(caller, updatedUser);
-
+        await Auth.update_user_add_table(caller, tableId, "tablesCreated");
         ?table
       }
     }
@@ -90,35 +79,15 @@ actor TableManagement {
         if (not arrayContains<Nat>(user.tablesCreated, tableId, Nat.equal)) {
           return "You did not create this table or table does not exist.";
         };
-        ignore tablesById.remove(tableId);
+        let table = tablesById.get(tableId);
         // Remove tableId from tablesJoined of all users
-        for ((principal, u) in usersByPrincipal.entries()) {
-          if (arrayContains<Nat>(u.tablesJoined, tableId, Nat.equal)) {
-            let updatedUser : User = {
-              username = u.username;
-              email = u.email;
-              github = u.github;
-              slack = u.slack;
-              principal = u.principal;
-              tablesCreated = u.tablesCreated;
-              tablesJoined = Array.filter<Nat>(u.tablesJoined, func (id) = id != tableId);
-            };
-            usersByPrincipal.put(u.principal, updatedUser);
-          }
+        for (principal in table.tableCollaborators) {
+          await Auth.update_user_remove_table(principal, tableId, "tablesJoined");
         };
-
         // Remove tableId from caller's tablesCreated
-        let updatedCaller : User = {
-          username = user.username;
-          email = user.email;
-          github = user.github;
-          slack = user.slack;
-          principal = user.principal;
-          tablesCreated = Array.filter<Nat>(user.tablesCreated, func (id) = id != tableId);
-          tablesJoined = user.tablesJoined;
-        };
-        usersByPrincipal.put(caller, updatedCaller);
-
+        await Auth.update_user_remove_table(caller, tableId, "tablesCreated");
+        ignore tablesById.remove(tableId);
+        
         // Clean up pending requests for this table
         let requestsToRemove = Array.mapFilter<((Nat, Nat), Principal), (Nat, Nat)>(
           Iter.toArray(pendingJoinRequests.entries()),
@@ -167,16 +136,7 @@ actor TableManagement {
           return "You have not joined this table.";
         };
         // Remove tableId from caller's tablesJoined
-        let updatedUser : User = {
-          username = user.username;
-          email = user.email;
-          github = user.github;
-          slack = user.slack;
-          principal = user.principal;
-          tablesCreated = user.tablesCreated;
-          tablesJoined = Array.filter<Nat>(user.tablesJoined, func (id) = id != tableId);
-        };
-        usersByPrincipal.put(caller, updatedUser);
+        await Auth.update_user_remove_table(caller, tableId, "tablesjoined");
 
         // Remove caller's userId from the table's tableCollaborators
         switch (tablesById.get(tableId)) {
@@ -267,16 +227,7 @@ actor TableManagement {
                 tablesById.put(tableId, updatedTable);
 
                 // Add tableId to user's tablesJoined
-                let updatedUser : User = {
-                  username = user.username;
-                  email = user.email;
-                  github = user.github;
-                  slack = user.slack;
-                  principal = user.principal;
-                  tablesCreated = user.tablesCreated;
-                  tablesJoined = Array.append(user.tablesJoined, [tableId]);
-                };
-                usersByPrincipal.put(caller, updatedUser);
+                await Auth.update_user_add_table(caller, tableId, "tablesJoined");
                 // Remove pending request
                 ignore pendingJoinRequests.remove((userPrincipal, tableId));
                 "Joined the table successfully."
