@@ -86,7 +86,7 @@ actor TableManagement {
           case null "Table not found";
           case (?table) {
           // Remove tableId from tablesJoined of all users
-            for (principal in table.tableCollaborators) {
+            for (principal in table.tableCollaborators.vals()) {
               await Auth.update_user_remove_table(principal, tableId, "tablesJoined");
             };
             // Remove tableId from caller's tablesCreated
@@ -94,7 +94,7 @@ actor TableManagement {
             ignore tablesById.remove(tableId);
             
             // Clean up pending requests for this table
-            let requestsToRemove = Array.mapFilter<((Principal, Nat), Principal), (Nat, Nat)>(
+            let requestsToRemove = Array.mapFilter<((Principal, Nat), Principal), (Principal, Nat)>(
               Iter.toArray(pendingJoinRequests.entries()),
               func((key, _)) = if (key.1 == tableId) ?key else null
             );
