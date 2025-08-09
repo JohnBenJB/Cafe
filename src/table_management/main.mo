@@ -3,6 +3,8 @@ import TrieMap "mo:base/TrieMap";
 import Nat "mo:base/Nat";
 import Hash "mo:base/Hash";
 import Iter "mo:base/Iter";
+import Array "mo:base/Array";
+import Principal "mo:base/Principal";
 import Auth "canister:authentication";
 
 actor TableManagement {
@@ -11,7 +13,7 @@ actor TableManagement {
   type User = Auth.User;
 
   stable var tablesEntries : [(Nat, Table)] = [];
-  stable var pendingRequestsEntries : [((Nat, Nat), Principal)] = [];
+  stable var pendingRequestsEntries : [((Principal, Nat), Principal)] = [];
   stable var nextTableId : Nat = 1;
 
   // Helper function to check if array contains element
@@ -50,7 +52,7 @@ actor TableManagement {
     if (title == "") {
       return null;
     };
-    switch (Auth.get_profile()) {
+    switch (await Auth.get_profile()) {
       case null null;
       case (?user) {
         let tableId = nextTableId;
@@ -72,7 +74,7 @@ actor TableManagement {
   // Delete a table
   public shared(msg) func delete_table(tableId : Nat) : async Text {
     let caller = msg.caller;
-    switch (Auth.get_profile()) {
+    switch (await Auth.get_profile()) {
       case null "User not found.";
       case (?user) {
         // Check if tableId is in caller's tablesCreated
@@ -107,7 +109,7 @@ actor TableManagement {
 
   // Get user's tables (created and joined) - FIXED: removed query, fixed record syntax
   public shared(msg) func get_user_tables() : async UserTables {
-    switch (Auth.get_profile()) {
+    switch (await Auth.get_profile()) {
       case null {
         { created = []; joined = [] }
       };
@@ -128,7 +130,7 @@ actor TableManagement {
   // Leave a table
   public shared(msg) func leave_table(tableId : Nat) : async Text {
     let caller = msg.caller;
-    switch (Auth.get_profile()) {
+    switch (await Auth.get_profile()) {
       case null "User not found.";
       case (?user) {
         // Check if tableId is in caller's tablesJoined
@@ -163,7 +165,7 @@ actor TableManagement {
       case (?table) {
         Array.mapFilter<Nat, User>(
           table.tableCollaborators,
-          func(userPrincipal) = Auth.get_user_by_principal(userPrincipal)
+          func(userPrincipal) = await Auth.get_user_by_principal(userPrincipal)
         )
       }
     }
@@ -172,8 +174,8 @@ actor TableManagement {
    // Request to add a user to a table
   public shared(msg) func request_join_table(userPrincipal : Principal, tableId : Nat) : async Text {
     let caller = msg.caller;
-    let creatorOpt = Auth.get_profile();
-    let userOpt = Auth.get_user_by_principal(userPrincipal);
+    let creatorOpt = await Auth.get_profile();
+    let userOpt = await Auth.get_user_by_principal(userPrincipal);
     let tableOpt = tablesById.get(tableId);
 
     switch (creatorOpt, userOpt, tableOpt) {
@@ -203,7 +205,7 @@ actor TableManagement {
   public shared(msg) func accept_join_table(tableId : Nat) : async Text {
     let caller = msg.caller;
 
-    switch (Auth.get_profile()) {
+    switch (await Auth.get_profile()) {
       case null "User not found.";
       case (?user) {
         let userPrincipal = user.principal;
@@ -242,7 +244,7 @@ actor TableManagement {
   // Cancel a join request
   public shared(msg) func cancel_join_request(userPrincipal : Nat, tableId : Nat) : async Text {
     let caller = msg.caller;
-    switch (Auth.get_profile()) {
+    switch (await Auth.get_profile()) {
       case null "User not found.";
       case (?user) {
         // Check if caller created the table
@@ -260,7 +262,7 @@ actor TableManagement {
   //Reject a join request
   public shared(msg) func reject_join_request(tableId : Nat) {
     let caller = msg.caller;
-    switch (Auth.get_profile()) {
+    switch (await Auth.get_profile()) {
       case null "User not found";
       case (?user) {
         switch (pendingJoinRequests.remove((caller, tableId))) {
@@ -274,7 +276,7 @@ actor TableManagement {
   // Get pending sent requests for table created by caller
   public shared(msg) func get_pending_sent_requests(tableId : Nat) : async [(Nat, Nat, Text)] {
     let caller = msg.caller;
-    switch (Auth.get_profile()) {
+    switch (await Auth.get_profile()) {
       case null [];
       case (?user) {
         //Check if caller created table
@@ -300,7 +302,7 @@ actor TableManagement {
   // Get all pending requests recieved by caller
   public shared(msg) func get_pending_recieved_requests() : async [(Nat, Nat, Text)] {
     let caller = msg.caller;
-    switch (Auth.get_profile()) {
+    switch (await Auth.get_profile()) {
       case null [];
       case (?user) {
         let requests = Array.mapFilter<((Principal, Nat), Principal), Text>(
