@@ -138,6 +138,9 @@ actor TableManagement {
     switch (await Auth.get_user_by_principal(caller)) {
       case null "User not found.";
       case (?user) {
+        if (arrayContains<Nat>(user.tablesCreated, tableId, Nat.equal)) {
+          return "You cannot leave a table you created.";
+        };
         // Check if tableId is in caller's tablesJoined
         if (not arrayContains<Nat>(user.tablesJoined, tableId, Nat.equal)) {
           return "You have not joined this table.";
