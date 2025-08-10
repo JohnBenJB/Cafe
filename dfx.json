@@ -9,25 +9,10 @@
       "main": "src/table_management/main.mo",
       "dependencies": ["authentication"]
     },
-    "collaboration": {
-      "type": "motoko",
-      "main": "src/collaboration/main.mo"
-    },
-    "storage": {
-      "type": "motoko",
-      "main": "src/storage/main.mo"
-    },
-    "communication": {
-      "type": "motoko",
-      "main": "src/communication/main.mo"
-    },
     "frontend": {
       "dependencies": [
         "authentication",
-        "table_management",
-        "collaboration",
-        "storage",
-        "communication"
+        "table_management"
       ],
       "source": ["frontend/dist"],
       "type": "assets",
