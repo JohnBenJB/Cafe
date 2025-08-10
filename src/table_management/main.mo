@@ -143,7 +143,7 @@ actor TableManagement {
           return "You have not joined this table.";
         };
         // Remove tableId from caller's tablesJoined
-        ignore await Auth.update_user_remove_table(caller, tableId, "tablesjoined");
+        ignore await Auth.update_user_remove_table(caller, tableId, "tablesJoined");
 
         // Remove caller's userId from the table's tableCollaborators
         switch (tablesById.get(tableId)) {
@@ -168,10 +168,15 @@ actor TableManagement {
     switch (tablesById.get(tableId)) {
       case null [];
       case (?table) {
-        Array.mapFilter<Principal, User>(
-          table.tableCollaborators,
-          func(userPrincipal) = await Auth.get_user_by_principal(userPrincipal)
-        )
+        var users: [User] = [];
+        for (p in table.tableCollaborators) {
+          let uOpt = await Auth.get_user_by_principal(p);
+          switch (uOpt) {
+            case (?u) { users := Array.append(users, [u]); };
+            case null {};
+          };
+        };
+        users
       }
     }
   };
@@ -282,26 +287,22 @@ actor TableManagement {
   };
 
   // Get pending sent requests for table created by caller
-  public shared(msg) func get_pending_sent_requests(tableId : Nat) : async [(Nat, Nat, Text)] {
+  public shared(msg) func get_pending_sent_requests(tableId : Nat) : async [Text] {
     let caller = msg.caller;
     switch (await Auth.get_profile()) {
       case null [];
       case (?user) {
         //Check if caller created table
         if (arrayContains<Nat>(user.tablesCreated, tableId, Nat.equal)) {
-          let requests = Array.mapFilter<((Principal, Nat), Principal), Text>(
-            Iter.toArray(pendingJoinRequests.entries()),
-            func(((recipient, tableIdAssociated), sender)) {
-              if (tableIdAssociated == tableId ) {
-                //Check is recipient user exists...may be unnecessary since cleanup is done after user deleted
-                switch (await Auth.get_profile()) {
-                  case (?recipient_user) ?recipient_user.username;
-                  case null null;
-                }
-              }
-              else null
-            }
-          )
+          let requests = [];
+          let pendingRequests = Iter.toArray(pendingJoinRequests.entries());
+          for (request in pendingRequests) {
+            let ((recipient, tableIdAssociated), sender) = request;
+            if (tableIdAssociated == tableId ) {
+              //Check is recipient user exists...may be unnecessary since cleanup is done after user deleted
+              Array.append(requests, [recipient.username]);
+            }  
+          }
         } else []
         requests
       }
@@ -313,20 +314,17 @@ actor TableManagement {
     switch (await Auth.get_profile()) {
       case null [];
       case (?user) {
-        let requests = Array.mapFilter<((Principal, Nat), Principal), Text>(
-          Iter.toArray(pendingJoinRequests.entries()),
-          func(((recipient, tableIdAssociated), sender)) {
-            if (recipient == caller) {
-              let table = tablesById.get(tableIdAssociated);
-              switch (table) {
-                case null "Table not found";
-                case (?table) table.title
-              }
-            }
-            else null
-          }
-        );
-        requests
+        var out: [Text] = [];
+        let entries = Iter.toArray(pendingJoinRequests.entries()); // [((Principal,Nat), Principal)]
+        for (((recipient, tableIdAssociated), sender) in entries) {
+          if (recipient == caller) {
+            switch (tablesById.get(tableIdAssociated)) {
+              case null { };
+              case (?table) { out := Array.append(out, [table.title]); };
+            };
+          };
+        };
+        out;
       }
     }
   };
