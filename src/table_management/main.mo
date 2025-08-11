@@ -142,6 +142,7 @@ actor TableManagement {
         if (not arrayContains<Nat>(user.tablesJoined, tableId, Nat.equal)) {
           return "You have not joined this table.";
         };
+        
         // Remove tableId from caller's tablesJoined
         ignore await Auth.update_user_remove_table(caller, tableId, "tablesJoined");
 
