@@ -3,6 +3,7 @@ module {
     id : Nat;
     title : Text;
     creator : Principal;
+    description : Text;
     tableCollaborators : [Principal]; // List of users in Table
   };
 

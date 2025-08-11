@@ -47,7 +47,7 @@ actor TableManagement {
   };
 
    // Create a new table
-  public shared(msg) func create_table(title : Text) : async ?Table {
+  public shared(msg) func create_table(title : Text, description : Text) : async ?Table {
     let caller = msg.caller;
     if (title == "") {
       return null;
@@ -60,6 +60,7 @@ actor TableManagement {
         let table : Table = {
           id = tableId;
           title = title;
+          description = description;
           creator = caller;
           tableCollaborators = [caller];
         };
@@ -157,6 +158,7 @@ actor TableManagement {
               id = table.id;
               title = table.title;
               creator = table.creator;
+              description = table.description;
               tableCollaborators = Array.filter<Principal>(table.tableCollaborators, func (upcl) = upcl != user.principal);
             };
             tablesById.put(tableId, updatedTable);
@@ -241,6 +243,7 @@ actor TableManagement {
                   id = table.id;
                   title = table.title;
                   creator = table.creator;
+                  description = table.description;
                   tableCollaborators = Array.append(table.tableCollaborators, [userPrincipal]);
                 };
                 tablesById.put(tableId, updatedTable);
