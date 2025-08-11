@@ -52,7 +52,7 @@ actor TableManagement {
     if (title == "") {
       return null;
     };
-    switch (await Auth.get_profile()) {
+    switch (await Auth.get_user_by_principal(caller)) {
       case null null;
       case (?user) {
         let tableId = nextTableId;
@@ -74,7 +74,7 @@ actor TableManagement {
   // Delete a table
   public shared(msg) func delete_table(tableId : Nat) : async Text {
     let caller = msg.caller;
-    switch (await Auth.get_profile()) {
+    switch (await Auth.get_user_by_principal(caller)) {
       case null "User not found.";
       case (?user) {
         // Check if tableId is in caller's tablesCreated
@@ -92,7 +92,7 @@ actor TableManagement {
             // Remove tableId from caller's tablesCreated
             ignore await Auth.update_user_remove_table(caller, tableId, "tablesCreated");
             ignore tablesById.remove(tableId);
-            
+
             // Clean up pending requests for this table
             let requestsToRemove = Array.mapFilter<((Principal, Nat), Principal), (Principal, Nat)>(
               Iter.toArray(pendingJoinRequests.entries()),
@@ -114,7 +114,7 @@ actor TableManagement {
 
   // Get user's tables (created and joined) - FIXED: removed query, fixed record syntax
   public shared(msg) func get_user_tables() : async UserTables {
-    switch (await Auth.get_profile()) {
+    switch (await Auth.get_user_by_principal(msg.caller)) {
       case null {
         { created = []; joined = [] }
       };
@@ -135,9 +135,12 @@ actor TableManagement {
   // Leave a table
   public shared(msg) func leave_table(tableId : Nat) : async Text {
     let caller = msg.caller;
-    switch (await Auth.get_profile()) {
+    switch (await Auth.get_user_by_principal(caller)) {
       case null "User not found.";
       case (?user) {
+        if (arrayContains<Nat>(user.tablesCreated, tableId, Nat.equal)) {
+          return "You cannot leave a table you created.";
+        };
         // Check if tableId is in caller's tablesJoined
         if (not arrayContains<Nat>(user.tablesJoined, tableId, Nat.equal)) {
           return "You have not joined this table.";
@@ -170,7 +173,7 @@ actor TableManagement {
       case null [];
       case (?table) {
         var users: [User] = [];
-        for (p in table.tableCollaborators) {
+        for (p in table.tableCollaborators.vals()) {
           let uOpt = await Auth.get_user_by_principal(p);
           switch (uOpt) {
             case (?u) { users := Array.append(users, [u]); };
@@ -185,7 +188,7 @@ actor TableManagement {
    // Request to add a user to a table
   public shared(msg) func request_join_table(userPrincipal : Principal, tableId : Nat) : async Text {
     let caller = msg.caller;
-    let creatorOpt = await Auth.get_profile();
+    let creatorOpt = await Auth.get_user_by_principal(caller);
     let userOpt = await Auth.get_user_by_principal(userPrincipal);
     let tableOpt = tablesById.get(tableId);
 
@@ -219,7 +222,7 @@ actor TableManagement {
   public shared(msg) func accept_join_table(tableId : Nat) : async Text {
     let caller = msg.caller;
 
-    switch (await Auth.get_profile()) {
+    switch (await Auth.get_user_by_principal(caller)) {
       case null "User not found.";
       case (?user) {
         let userPrincipal = user.principal;
@@ -258,7 +261,7 @@ actor TableManagement {
   // Cancel a join request
   public shared(msg) func cancel_join_request(userPrincipal : Principal, tableId : Nat) : async Text {
     let caller = msg.caller;
-    switch (await Auth.get_profile()) {
+    switch (await Auth.get_user_by_principal(caller)) {
       case null "User not found.";
       case (?user) {
         // Check if caller created the table
@@ -276,7 +279,7 @@ actor TableManagement {
   //Reject a join request
   public shared(msg) func reject_join_request(tableId : Nat) : async Text {
     let caller = msg.caller;
-    switch (await Auth.get_profile()) {
+    switch (await Auth.get_user_by_principal(caller)) {
       case null "User not found";
       case (?user) {
         switch (pendingJoinRequests.remove((caller, tableId))) {
@@ -288,36 +291,41 @@ actor TableManagement {
   };
 
   // Get pending sent requests for table created by caller
-  public shared(msg) func get_pending_sent_requests(tableId : Nat) : async [Text] {
+  public shared(msg) func get_pending_sent_requests(tableId : Nat) : async
+  [Text] {
     let caller = msg.caller;
-    switch (await Auth.get_profile()) {
+    switch (await Auth.get_user_by_principal(caller)) {
       case null [];
       case (?user) {
         //Check if caller created table
         if (arrayContains<Nat>(user.tablesCreated, tableId, Nat.equal)) {
-          let requests = [];
+          var requests : [Text] = [];
           let pendingRequests = Iter.toArray(pendingJoinRequests.entries());
-          for (request in pendingRequests) {
+          for (request in pendingRequests.vals()) {
             let ((recipient, tableIdAssociated), sender) = request;
             if (tableIdAssociated == tableId ) {
-              //Check is recipient user exists...may be unnecessary since cleanup is done after user deleted
-              Array.append(requests, [recipient.username]);
-            }  
-          }
+              switch (await Auth.get_user_by_principal(recipient)) {
+                case (?recipUser) {
+                  requests := Array.append(requests, [recipUser.username]);
+                };
+                case null {};
+              };
+            }
+          };
+          requests
         } else []
-        requests
       }
     }
   };
   // Get all pending requests recieved by caller
   public shared(msg) func get_pending_recieved_requests() : async [Text] {
     let caller = msg.caller;
-    switch (await Auth.get_profile()) {
+    switch (await Auth.get_user_by_principal(caller)) {
       case null [];
       case (?user) {
         var out: [Text] = [];
         let entries = Iter.toArray(pendingJoinRequests.entries()); // [((Principal,Nat), Principal)]
-        for (((recipient, tableIdAssociated), sender) in entries) {
+        for (((recipient, tableIdAssociated), sender) in entries.vals()) {
           if (recipient == caller) {
             switch (tablesById.get(tableIdAssociated)) {
               case null { };
