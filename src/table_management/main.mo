@@ -6,11 +6,13 @@ import Iter "mo:base/Iter";
 import Array "mo:base/Array";
 import Principal "mo:base/Principal";
 import Auth "canister:authentication";
+import Result "mo:base/Result";
 
 actor TableManagement {
   type Table = Types.Table;
   type UserTables = Types.UserTables;
   type User = Auth.User;
+  type Result<T, E> = Result.Result<T, E>;
 
   stable var tablesEntries : [(Nat, Table)] = [];
   stable var pendingRequestsEntries : [((Principal, Nat), Principal)] = [];
@@ -80,7 +82,7 @@ actor TableManagement {
     let caller = msg.caller;
     switch (await Auth.get_user_by_principal(caller)) {
       case null #err("Principal not a registered user");
-      case (?user) {   
+      case (?user) {
         let table = tablesById.get(tableId);
         switch (table) {
           case null #err("Table does not exist");
@@ -142,21 +144,21 @@ actor TableManagement {
     switch (await Auth.get_user_by_principal(caller)) {
       case null #err("Principal not a registered user");
       case (?user) {
-        if (arrayContains<Nat>(user.tablesCreated, tableId, Nat.equal)) {
-          return #err("User cannot leave owned table");
-        };
-        // Check if tableId is in caller's tablesJoined
-        if (not arrayContains<Nat>(user.tablesJoined, tableId, Nat.equal)) {
-          return #err("User not a table collaborator");
-        };
-        
-        // Remove tableId from caller's tablesJoined
-        ignore await Auth.update_user_remove_table(caller, tableId, "tablesJoined");
-
-        // Remove caller's userId from the table's tableCollaborators
         switch (tablesById.get(tableId)) {
           case null #err("Table does not exist");
           case (?table) {
+            if (arrayContains<Nat>(user.tablesCreated, tableId, Nat.equal)) {
+              return #err("User cannot leave owned table");
+            };
+            // Check if tableId is in caller's tablesJoined
+            if (not arrayContains<Nat>(user.tablesJoined, tableId, Nat.equal)) {
+              return #err("User not a table collaborator");
+            };
+
+            // Remove tableId from caller's tablesJoined
+            ignore await Auth.update_user_remove_table(caller, tableId, "tablesJoined");
+            // Remove caller's userId from the table's tableCollaborators
+
             let updatedTable : Table = {
               id = table.id;
               title = table.title;
@@ -224,7 +226,7 @@ actor TableManagement {
   };
 
    // Accept a join request to a table
-  public shared(msg) func accept_join_table(tableId : Nat) : async Result<?[Nat], Text> {
+  public shared(msg) func accept_join_table(tableId : Nat) : async Result<[Nat], Text> {
     let caller = msg.caller;
 
     switch (await Auth.get_user_by_principal(caller)) {
