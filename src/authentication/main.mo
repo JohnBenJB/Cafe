@@ -3,21 +3,19 @@ import TrieMap "mo:base/TrieMap";
 import Iter "mo:base/Iter";
 import Principal "mo:base/Principal";
 import Array "mo:base/Array";
+import Result "mo:base/Result";
 
 actor Authentication {
   type User = Types.User;
-  //the following variables are of necessity, stable
-  stable var usersEntries : [(Principal, User)] = [];
-  // private stable var usersByIdEntries : [(Nat, User)] = [];
-  // private stable var nextId : Nat = 1;
+  type Result<T, E> = Result.Result<T, E>;
+
+  //the following variable is, of necessity, stable
+  stable var usersEntries : [(Principal, User)] = []; 
 
   // Initialize TrieMaps
   let usersByPrincipal = TrieMap.fromEntries<Principal, User>(
     usersEntries.vals(), Principal.equal, Principal.hash
   );
-  // private transient let usersById = TrieMap.fromEntries<Nat, User>(
-  //   usersByIdEntries.vals(), Nat.equal, Hash.hash
-  // );
 
   // System functions for upgrades
   system func preupgrade() {
@@ -36,24 +34,15 @@ actor Authentication {
     email : Text,
     github : Text,
     slack : Text
-  ) : async Text {
+  ) : async Result<Text, Text> {
     let caller = msg.caller;
 
     // Validate input
     if (username == "" or email == "") {
-      return "Username and email are required.";
+      return #err("Username and email are required.");
     };
 
     let existingUser = usersByPrincipal.get(caller);
-    // let userId = switch(existingUser) {
-    //   case (?user) user.id;
-    //   case null {
-    //     let id = nextId;
-    //     nextId += 1;
-    //     id
-    //   }
-    // };
-
     let user : User = {
       // id = userId;
       username = username;
@@ -73,7 +62,7 @@ actor Authentication {
 
     usersByPrincipal.put(caller, user);
     // usersById.put(userId, user);
-    "Profile registered/updated successfully."
+    #ok("Profile registered/updated successfully.")
   };
 
   // update user profile; to be used by other backend canisters
@@ -81,9 +70,9 @@ actor Authentication {
     principal : Principal,
     tableId : Nat,
     tableType: Text,
-  ) : async Text {
+  ) : async Result<Text, Text> {
     switch (usersByPrincipal.get(principal)) {
-      case null return "User not found.";
+      case null return #err("Principal not a registered user");
       case (?user) {
         let updatedUser : User = {
           username = user.username;
@@ -103,7 +92,7 @@ actor Authentication {
           }
         };
         usersByPrincipal.put(principal, updatedUser);
-        return "User successfully updated"
+        #ok("User successfully updated")
       }
     }
   };
@@ -111,9 +100,9 @@ actor Authentication {
     principal : Principal,
     tableId : Nat,
     tableType: Text,
-  ) : async Text {
+  ) : async Result<Text, Text> {
     switch (usersByPrincipal.get(principal)) {
-      case null return "User not found.";
+      case null return #err("Principal not a registered user");
       case (?user) {
         let updatedUser : User = {
           username = user.username;
@@ -133,7 +122,7 @@ actor Authentication {
           }
         };
         usersByPrincipal.put(principal, updatedUser);
-        return "User successfully updated"
+        #ok("User successfully updated")
       }
     }
   };
