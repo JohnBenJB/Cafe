@@ -9,6 +9,10 @@
       "main": "src/table_management/main.mo",
       "dependencies": ["authentication"]
     },
+    "storage": {
+      "type": "motoko",
+      "main": "src/storage/main.mo"
+    },
     "frontend": {
       "dependencies": [
         "authentication",
