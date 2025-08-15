@@ -763,7 +763,7 @@ actor {
   // ===== FILE READING =====
 
   // Get file metadata
-  public func getFileMeta(fileId : FileId) : async Result<FileMetaView, Error> {
+  func getFileMeta(fileId : FileId) : Result<FileMetaView, Error> {
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
@@ -883,13 +883,12 @@ actor {
   // ===== FILE UPDATING =====
 
   // Update file metadata
-  public func updateFileMeta(
+  public shared(msg) func updateFileMeta(
     fileId : FileId,
     name : ?Text,
     mime : ?Text,
-    user : Principal
   ) : async Result<(), Error> {
-
+    let user = msg.caller;
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
@@ -951,11 +950,11 @@ actor {
   };
 
   // Replace file content with new chunks
-  public func replaceFileContent(
+  func replaceFileContent(
     fileId : FileId,
     newChunks : [ContentChunk],
     user : Principal
-  ) : async Result<Version, Error> {
+  ) : Result<Version, Error> {
 
     switch (filesById.get(fileId)) {
       case (?file) {
@@ -1003,12 +1002,12 @@ actor {
   };
 
   // Update a specific chunk
-  public func updateChunk(
+  func updateChunk(
     fileId : FileId,
     chunkIndex : Nat,
     data : Blob,
     user : Principal
-  ) : async Result<Version, Error> {
+  ) : Result<Version, Error> {
 
     switch (filesById.get(fileId)) {
       case (?file) {
@@ -1075,7 +1074,7 @@ actor {
   // ===== FILE DELETION =====
 
   // Soft delete a file
-  public func deleteFile(fileId : FileId, user : Principal) : async Result<(), Error> {
+  func deleteFile(fileId : FileId, user : Principal) : Result<(), Error> {
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
@@ -1105,7 +1104,7 @@ actor {
   };
 
   // Restore a deleted file
-  public func restoreFile(fileId : FileId, user : Principal) : async Result<(), Error> {
+  func restoreFile(fileId : FileId, user : Principal) : Result<(), Error> {
     switch (filesById.get(fileId)) {
       case (?file) {
         if (not file.isDeleted) {
@@ -1141,13 +1140,12 @@ actor {
   // ===== ACCESS CONTROL =====
 
   // Share file with another user
-  public func shareFile(
+  public shared(msg) func shareFile(
     fileId : FileId,
     targetUser : Principal,
     role : Role,
-    user : Principal
   ) : async Result<(), Error> {
-
+    let user = msg.caller;
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
@@ -1188,12 +1186,11 @@ actor {
   };
 
   // Revoke access for a user
-  public func revokeAccess(
+  public shared(msg) func revokeAccess(
     fileId : FileId,
     targetUser : Principal,
-    user : Principal
   ) : async Result<(), Error> {
-
+    let user = msg.caller;
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
@@ -1220,12 +1217,11 @@ actor {
   };
 
   // Set public access
-  public func setPublicAccess(
+  public shared(msg) func setPublicAccess(
     fileId : FileId,
     isPublic : Bool,
-    user : Principal
   ) : async Result<(), Error> {
-
+    let user = msg.caller;
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
@@ -1280,7 +1276,7 @@ actor {
   };
 
   // Clean up deleted files (permanent deletion)
-  public func cleanupDeletedFiles() : async Nat {
+  func cleanupDeletedFiles() : Nat {
     var deletedCount : Nat = 0;
     let toDelete = Buffer.Buffer<FileId>(0);
 
@@ -1334,7 +1330,7 @@ actor {
   };
 
   // Add event to ring buffer
-  public func addEvent(fileId : FileId, event : Event) : () {
+  func addEvent(fileId : FileId, event : Event) : () {
     switch (eventsByFile.get(fileId)) {
       case (?buffer) {
         buffer.events.add(event);
@@ -1384,11 +1380,11 @@ actor {
   // ===== PRESENCE MANAGEMENT =====
 
   // Join a file (start presence)
-  public func joinFile(
+  func joinFile(
     fileId : FileId,
     clientId : ClientId,
     user : Principal
-  ) : async Result<Seq, Error> {
+  ) : Result<Seq, Error> {
 
     // Create presence entry
     let presence : ClientPresence = {
@@ -1425,7 +1421,7 @@ actor {
   };
 
   // Leave a file (end presence)
-  public func leaveFile(
+  public shared({ caller }) func leaveFile(
     fileId : FileId,
     clientId : ClientId
   ) : async Result<(), Error> {
@@ -1453,11 +1449,11 @@ actor {
   };
 
   // Update client heartbeat and cursor
-  public func updatePresence(
+  func updatePresence(
     fileId : FileId,
     clientId : ClientId,
     cursor : ?Cursor
-  ) : async Result<(), Error> {
+  ) : Result<(), Error> {
 
     switch (presenceByFile.get(fileId)) {
       case (?filePresence) {
@@ -1517,7 +1513,7 @@ actor {
   };
 
   // Clean up stale clients
-  public func cleanupStaleClients(fileId : FileId) : async Result<Nat, Error> {
+  func cleanupStaleClients(fileId : FileId) : Result<Nat, Error> {
     switch (presenceByFile.get(fileId)) {
       case (?filePresence) {
         let now = Types.now();
@@ -1621,7 +1617,7 @@ actor {
   };
 
   // Get all subscriptions for a file
-  public func getSubscriptions(fileId : FileId) : async Result<[Subscription], Error> {
+  func getSubscriptions(fileId : FileId) : Result<[Subscription], Error> {
     switch (subscriptionsByFile.get(fileId)) {
       case (?fileSubscriptions) {
         let subscriptions = Buffer.Buffer<Subscription>(0);
@@ -1637,10 +1633,10 @@ actor {
   // ===== PATCH PROCESSING =====
 
   // Check if operation is duplicate
-  public func isDuplicateOperation(
+  func isDuplicateOperation(
     fileId : FileId,
     clientOpId : Text
-  ) : async Bool {
+  ) : Bool {
 
     switch (dedupeOpIdsByFile.get(fileId)) {
       case (?fileOpIds) {
@@ -1651,7 +1647,7 @@ actor {
   };
 
   // Record operation as processed
-  public func recordOperation(
+  func recordOperation(
     fileId : FileId,
     clientOpId : Text
   ) : () {
@@ -1696,14 +1692,14 @@ actor {
   // ===== LIVE EDITING SUPPORT =====
 
   // Apply a patch and create events
-  public func applyPatch(
+  func applyPatch(
     fileId : FileId,
     patch : Patch,
     commit : Types.Commit
-  ) : async Result<Seq, Error> {
+  ) : Result<Seq, Error> {
 
     // Check for duplicate operation
-    if (await isDuplicateOperation(fileId, patch.clientOpId)) {
+    if (isDuplicateOperation(fileId, patch.clientOpId)) {
       return #err(#DuplicateOperation);
     };
 
@@ -1725,10 +1721,10 @@ actor {
   };
 
   // Create snapshot event
-  public func createSnapshotEvent(
+  func createSnapshotEvent(
     fileId : FileId,
     version : Version
-  ) : async Result<Seq, Error> {
+  ) : Result<Seq, Error> {
 
     let event : Event = {
       seq = nextSeq;
@@ -1744,10 +1740,10 @@ actor {
   };
 
   // Create file deleted event
-  public func createFileDeletedEvent(
+  func createFileDeletedEvent(
     fileId : FileId,
     by : Principal
-  ) : async Result<Seq, Error> {
+  ) : Result<Seq, Error> {
 
     let event : Event = {
       seq = nextSeq;
@@ -1763,10 +1759,10 @@ actor {
   };
 
   // Create file restored event
-  public func createFileRestoredEvent(
+  func createFileRestoredEvent(
     fileId : FileId,
     by : Principal
-  ) : async Result<Seq, Error> {
+  ) : Result<Seq, Error> {
 
     let event : Event = {
       seq = nextSeq;
@@ -1784,12 +1780,12 @@ actor {
   // ===== UTILITY FUNCTIONS =====
 
   // Get current sequence number
-  public func getCurrentSeq() : async Seq {
+  func getCurrentSeq() : Seq {
     nextSeq;
   };
 
   // Get event count for a file
-  public func getEventCount(fileId : FileId) : async Nat {
+  func getEventCount(fileId : FileId) : Nat {
     switch (eventsByFile.get(fileId)) {
       case (?buffer) { buffer.events.size() };
       case null { 0 };
@@ -1797,7 +1793,7 @@ actor {
   };
 
   // Get active client count for a file
-  public func getActiveClientCount(fileId : FileId) : async Nat {
+  func getActiveClientCount(fileId : FileId) : Nat {
     switch (presenceByFile.get(fileId)) {
       case (?filePresence) { filePresence.size() };
       case null { 0 };
@@ -1805,7 +1801,7 @@ actor {
   };
 
   // Get subscription count for a file
-  public func getSubscriptionCount(fileId : FileId) : async Nat {
+  func getSubscriptionCount(fileId : FileId) : Nat {
     switch (subscriptionsByFile.get(fileId)) {
       case (?fileSubscriptions) { fileSubscriptions.size() };
       case null { 0 };
@@ -1871,9 +1867,9 @@ actor {
 
   // Clean up all data for a file
   public func cleanupFileData(fileId : FileId) : async Result<{ events : Nat; presence : Nat; subscriptions : Nat; operations : Nat }, Error> {
-    let eventCount = await getEventCount(fileId);
-    let presenceCount = await getActiveClientCount(fileId);
-    let subscriptionCount = await getSubscriptionCount(fileId);
+    let eventCount = getEventCount(fileId);
+    let presenceCount = getActiveClientCount(fileId);
+    let subscriptionCount = getSubscriptionCount(fileId);
 
     let operationCount = switch (dedupeOpIdsByFile.get(fileId)) {
       case (?fileOpIds) { fileOpIds.size() };
@@ -1903,11 +1899,11 @@ actor {
   var headsByFile = HashMap.HashMap<FileId, Version>(0, Nat32.equal, func(x : Nat32) : Nat32 { x });
 
   // Create initial version for a new file
-  public func createInitialVersion(
+  func createInitialVersion(
     fileId : FileId,
     chunks : [ContentChunk],
     owner : Principal
-  ) : async Result<Version, Error> {
+  ) : Result<Version, Error> {
 
     let version = nextVersion;
     nextVersion += 1;
@@ -1960,13 +1956,13 @@ actor {
   };
 
   // Create a new commit from a patch
-  public func createCommit(
+  func createCommit(
     fileId : FileId,
     patch : Patch,
     author : Principal,
     message : ?Text,
     newChunks : [ContentChunk]
-  ) : async Result<Version, Error> {
+  ) : Result<Version, Error> {
 
     // Get current head
     let currentHead = switch (headsByFile.get(fileId)) {
@@ -2025,12 +2021,12 @@ actor {
   };
 
   // Create a snapshot (manual save point)
-  public func createSnapshot(
+  func createSnapshot(
     fileId : FileId,
     author : Principal,
     message : ?Text,
     chunks : [ContentChunk]
-  ) : async Result<Version, Error> {
+  ) : Result<Version, Error> {
 
     // Get current head
     let currentHead = switch (headsByFile.get(fileId)) {
@@ -2092,7 +2088,7 @@ actor {
   // ===== VERSION READING =====
 
   // Get commit information for a specific version
-  public func getCommit(fileId : FileId, version : Version) : async Result<Commit, Error> {
+  func getCommit(fileId : FileId, version : Version) : Result<Commit, Error> {
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
         switch (fileVersions.get(version)) {
@@ -2105,7 +2101,7 @@ actor {
   };
 
   // Get chunks for a specific version
-  public func getVersionChunks(fileId : FileId, version : Version) : async Result<[ContentChunk], Error> {
+  func getVersionChunks(fileId : FileId, version : Version) : Result<[ContentChunk], Error> {
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
         switch (fileVersions.get(version)) {
@@ -2126,7 +2122,7 @@ actor {
   };
 
   // Get a specific chunk from a version
-  public func getVersionChunk(fileId : FileId, version : Version, chunkIndex : Nat) : async Result<ContentChunk, Error> {
+  func getVersionChunk(fileId : FileId, version : Version, chunkIndex : Nat) : Result<ContentChunk, Error> {
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
         switch (fileVersions.get(version)) {
@@ -2144,7 +2140,7 @@ actor {
   };
 
   // Get current head version for a file
-  public func getHeadVersion(fileId : FileId) : async Result<Version, Error> {
+  func getHeadVersion(fileId : FileId) : Result<Version, Error> {
     switch (headsByFile.get(fileId)) {
       case (?head) { #ok(head) };
       case null { #err(#NotFound) };
@@ -2221,12 +2217,12 @@ actor {
   ) : async Result<[EditOp], Error> {
 
     // Get commits for both versions
-    let fromCommit = switch (await getCommit(fileId, fromVersion)) {
+    let fromCommit = switch (getCommit(fileId, fromVersion)) {
       case (#ok(commit)) { commit };
       case (#err(error)) { return #err(error) };
     };
 
-    let toCommit = switch (await getCommit(fileId, toVersion)) {
+    let toCommit = switch (getCommit(fileId, toVersion)) {
       case (#ok(commit)) { commit };
       case (#err(error)) { return #err(error) };
     };
@@ -2270,15 +2266,15 @@ actor {
   // ===== VERSION ROLLBACK =====
 
   // Rollback to a specific version
-  public func rollbackToVersion(
+  func rollbackToVersion(
     fileId : FileId,
     targetVersion : Version,
     author : Principal,
     chunks : [ContentChunk]
-  ) : async Result<Version, Error> {
+  ) : Result<Version, Error> {
 
     // Verify target version exists
-    switch (await getCommit(fileId, targetVersion)) {
+    switch (getCommit(fileId, targetVersion)) {
       case (#ok(_)) { /* Version exists */ };
       case (#err(error)) { return #err(error) };
     };
@@ -2342,10 +2338,10 @@ actor {
   // ===== VERSION CLEANUP =====
 
   // Prune old versions (keep only recent ones)
-  public func pruneVersions(
+  func pruneVersions(
     fileId : FileId,
     keepCount : Nat
-  ) : async Result<Nat, Error> {
+  ) : Result<Nat, Error> {
 
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
@@ -2421,9 +2417,9 @@ actor {
 
   // Get latest commit message
   public func getLatestCommitMessage(fileId : FileId) : async Result<Text, Error> {
-    switch (await getHeadVersion(fileId)) {
+    switch (getHeadVersion(fileId)) {
       case (#ok(head)) {
-        switch (await getCommit(fileId, head)) {
+        switch (getCommit(fileId, head)) {
           case (#ok(commit)) {
             switch (commit.message) {
               case (?message) { #ok(message) };
@@ -2439,7 +2435,7 @@ actor {
 
   // Get commit author
   public func getCommitAuthor(fileId : FileId, version : Version) : async Result<Principal, Error> {
-    switch (await getCommit(fileId, version)) {
+    switch (getCommit(fileId, version)) {
       case (#ok(commit)) { #ok(commit.author) };
       case (#err(error)) { #err(error) };
     };
@@ -2447,7 +2443,7 @@ actor {
 
   // Get commit timestamp
   public func getCommitTime(fileId : FileId, version : Version) : async Result<Time.Time, Error> {
-    switch (await getCommit(fileId, version)) {
+    switch (getCommit(fileId, version)) {
       case (#ok(commit)) { #ok(commit.time) };
       case (#err(error)) { #err(error) };
     };
@@ -2533,7 +2529,7 @@ actor {
         switch (await getAllChunks(fileId)) {
           case (#ok(chunks)) {
             // Create initial version
-            switch (await createInitialVersion(fileId, chunks, caller)) {
+            switch (createInitialVersion(fileId, chunks, caller)) {
               case (#ok(version)) {
                 // Set up autosave policy
                 let defaultPolicy = Autosave.getDefaultPolicy();
@@ -2551,21 +2547,12 @@ actor {
     };
   };
 
-  // Update file metadata
-  public shared ({ caller }) func update_file_meta(
-    fileId : FileId,
-    name : ?Text,
-    mime : ?Text
-  ) : async Result<(), Error> {
-    await updateFileMeta(fileId, name, mime, caller);
-  };
-
   // Delete a file
   public shared ({ caller }) func delete_file(fileId : FileId) : async Result<(), Error> {
-    switch (await deleteFile(fileId, caller)) {
+    switch (deleteFile(fileId, caller)) {
       case (#ok(_)) {
         // Create delete event
-        ignore await createFileDeletedEvent(fileId, caller);
+        ignore createFileDeletedEvent(fileId, caller);
         #ok(());
       };
       case (#err(error)) { #err(error) };
@@ -2574,10 +2561,10 @@ actor {
 
   // Restore a deleted file
   public shared ({ caller }) func restore_file(fileId : FileId) : async Result<(), Error> {
-    switch (await restoreFile(fileId, caller)) {
+    switch (restoreFile(fileId, caller)) {
       case (#ok(_)) {
         // Create restore event
-        ignore await createFileRestoredEvent(fileId, caller);
+        ignore createFileRestoredEvent(fileId, caller);
         #ok(());
       };
       case (#err(error)) { #err(error) };
@@ -2586,23 +2573,6 @@ actor {
 
   // ===== CONTENT MANAGEMENT =====
 
-  // Get a specific chunk
-  public func get_chunk(
-    fileId : FileId,
-    chunkIndex : Nat
-  ) : async Result<ContentChunk, Error> {
-    await getChunk(fileId, chunkIndex);
-  };
-
-  // Get all chunks for a file
-  public func get_all_chunks(fileId : FileId) : async Result<[ContentChunk], Error> {
-    await getAllChunks(fileId);
-  };
-
-  // Get complete file content
-  public func get_file_content(fileId : FileId) : async Result<Blob, Error> {
-    await getFileContent(fileId);
-  };
 
   // Update a specific chunk
   public shared ({ caller }) func update_chunk(
@@ -2610,7 +2580,7 @@ actor {
     chunkIndex : Nat,
     data : Blob
   ) : async Result<Version, Error> {
-    switch (await updateChunk(fileId, chunkIndex, data, caller)) {
+    switch (updateChunk(fileId, chunkIndex, data, caller)) {
       case (#ok(version)) {
         // Record activity for autosave
         ignore await recordActivity(fileId);
@@ -2625,7 +2595,7 @@ actor {
     fileId : FileId,
     newChunks : [ContentChunk]
   ) : async Result<Version, Error> {
-    switch (await replaceFileContent(fileId, newChunks, caller)) {
+    switch (replaceFileContent(fileId, newChunks, caller)) {
       case (#ok(version)) {
         // Record activity for autosave
         ignore await recordActivity(fileId);
@@ -2637,31 +2607,6 @@ actor {
 
   // ===== ACCESS CONTROL =====
 
-  // Share file with another user
-  public shared ({ caller }) func share_file(
-    fileId : FileId,
-    targetUser : Principal,
-    role : Role
-  ) : async Result<(), Error> {
-    await shareFile(fileId, targetUser, role, caller);
-  };
-
-  // Revoke access for a user
-  public shared ({ caller }) func revoke_access(
-    fileId : FileId,
-    targetUser : Principal
-  ) : async Result<(), Error> {
-    await revokeAccess(fileId, targetUser, caller);
-  };
-
-  // Set public access
-  public shared ({ caller }) func set_public_access(
-    fileId : FileId,
-    isPublic : Bool
-  ) : async Result<(), Error> {
-    await setPublicAccess(fileId, isPublic, caller);
-  };
-
   // ===== VERSIONING =====
 
   // Get commit information
@@ -2669,7 +2614,7 @@ actor {
     fileId : FileId,
     version : Version
   ) : async Result<Commit, Error> {
-    await getCommit(fileId, version);
+    getCommit(fileId, version);
   };
 
   // Get chunks for a specific version
@@ -2677,21 +2622,12 @@ actor {
     fileId : FileId,
     version : Version
   ) : async Result<[ContentChunk], Error> {
-    await getVersionChunks(fileId, version);
+    getVersionChunks(fileId, version);
   };
 
   // Get current head version
   public func get_head_version(fileId : FileId) : async Result<Version, Error> {
-    await getHeadVersion(fileId);
-  };
-
-  // List versions for a file
-  public func list_versions(
-    fileId : FileId,
-    offset : Nat,
-    limit : Nat
-  ) : async Result<Paginated<Commit>, Error> {
-    await listVersions(fileId, offset, limit);
+    getHeadVersion(fileId);
   };
 
   // Create a snapshot
@@ -2701,10 +2637,10 @@ actor {
   ) : async Result<Version, Error> {
     switch (await getAllChunks(fileId)) {
       case (#ok(chunks)) {
-        switch (await createSnapshot(fileId, caller, message, chunks)) {
+        switch (createSnapshot(fileId, caller, message, chunks)) {
           case (#ok(version)) {
             // Create snapshot event
-            ignore await createSnapshotEvent(fileId, version);
+            ignore createSnapshotEvent(fileId, version);
             #ok(version);
           };
           case (#err(error)) { #err(error) };
@@ -2719,12 +2655,12 @@ actor {
     fileId : FileId,
     targetVersion : Version
   ) : async Result<Version, Error> {
-    switch (await getVersionChunks(fileId, targetVersion)) {
+    switch (getVersionChunks(fileId, targetVersion)) {
       case (#ok(chunks)) {
-        switch (await rollbackToVersion(fileId, targetVersion, caller, chunks)) {
+        switch (rollbackToVersion(fileId, targetVersion, caller, chunks)) {
           case (#ok(version)) {
             // Update file chunks
-            ignore await replaceFileContent(fileId, chunks, caller);
+            ignore replaceFileContent(fileId, chunks, caller);
             #ok(version);
           };
           case (#err(error)) { #err(error) };
@@ -2741,13 +2677,13 @@ actor {
     fileId : FileId,
     clientId : ClientId
   ) : async Result<{ headVersion : Version; seq : Seq; size : Nat }, Error> {
-    switch (await getFileMeta(fileId)) {
+    switch (getFileMeta(fileId)) {
       case (#ok(meta)) {
-        switch (await getHeadVersion(fileId)) {
+        switch (getHeadVersion(fileId)) {
           case (#ok(headVersion)) {
             #ok({
               headVersion = headVersion;
-              seq = await getCurrentSeq();
+              seq = getCurrentSeq();
               size = meta.size;
             });
           };
@@ -2765,7 +2701,7 @@ actor {
   ) : async Result<{ newVersion : Version; transformed : [EditOp] }, Error> {
 
     // Check for duplicate operation
-    if (await isDuplicateOperation(fileId, patch.clientOpId)) {
+    if (isDuplicateOperation(fileId, patch.clientOpId)) {
       return #err(#DuplicateOperation);
     };
 
@@ -2773,16 +2709,16 @@ actor {
     switch (await getAllChunks(fileId)) {
       case (#ok(chunks)) {
         // Create commit
-        switch (await createCommit(fileId, patch, caller, null, chunks)) {
+        switch (createCommit(fileId, patch, caller, null, chunks)) {
           case (#ok(version)) {
             // Apply patch to file content (simplified - in reality you'd apply the operations)
             // For now, we'll just update the file with the new chunks
-            ignore await replaceFileContent(fileId, chunks, caller);
+            ignore replaceFileContent(fileId, chunks, caller);
 
             // Create event
-            switch (await getCommit(fileId, version)) {
+            switch (getCommit(fileId, version)) {
               case (#ok(commit)) {
-                ignore await applyPatch(fileId, patch, commit);
+                ignore applyPatch(fileId, patch, commit);
               };
               case (#err(error)) { return #err(error) };
             };
@@ -2806,9 +2742,9 @@ actor {
     fileId : FileId,
     clientId : ClientId
   ) : async Result<{ headVersion : Version; since : Seq }, Error> {
-    switch (await getHeadVersion(fileId)) {
+    switch (getHeadVersion(fileId)) {
       case (#ok(headVersion)) {
-        switch (await joinFile(fileId, clientId, caller)) {
+        switch (joinFile(fileId, clientId, caller)) {
           case (#ok(seq)) {
             #ok({
               headVersion = headVersion;
@@ -2822,39 +2758,13 @@ actor {
     };
   };
 
-  // Leave a file
-  public shared ({ caller }) func leave_file(
-    fileId : FileId,
-    clientId : ClientId
-  ) : async Result<(), Error> {
-    await leaveFile(fileId, clientId);
-  };
 
   // Update cursor
   public shared ({ caller }) func update_cursor(
     fileId : FileId,
     cursor : Cursor
   ) : async Result<(), Error> {
-    await updatePresence(fileId, cursor.clientId, ?cursor);
-  };
-
-  // Get events
-  public func get_events(
-    fileId : FileId,
-    since : Seq,
-    maxEvents : Nat
-  ) : async Result<{ events : [Event]; nextSince : Seq }, Error> {
-    await getEvents(fileId, since, maxEvents);
-  };
-
-  // Get active clients
-  public func get_active_clients(fileId : FileId) : async Result<[Realtime.ClientPresence], Error> {
-    await getActiveClients(fileId);
-  };
-
-  // Get all cursors
-  public func get_all_cursors(fileId : FileId) : async Result<[Cursor], Error> {
-    await getAllCursors(fileId);
+    updatePresence(fileId, cursor.clientId, ?cursor);
   };
 
   // ===== AUTOSAVE =====
@@ -2885,7 +2795,7 @@ actor {
   public func saveFunction(fileId : FileId, user : Principal) : async Result<Version, Error> {
     switch (await getAllChunks(fileId)) {
       case (#ok(chunks)) {
-        await createSnapshot(fileId, user, ?"Autosave", chunks);
+        createSnapshot(fileId, user, ?"Autosave", chunks);
       };
       case (#err(error)) { #err(error) };
     };
@@ -2961,7 +2871,7 @@ actor {
   system func heartbeat() : async () {
     // Clean up stale clients
     for ((fileId, _) in presenceByFile.entries()) {
-      ignore await cleanupStaleClients(fileId);
+      ignore cleanupStaleClients(fileId);
     };
 
     // Process autosaves
@@ -3027,11 +2937,11 @@ actor {
     var eventsCleaned : Nat = 0;
 
     // Clean up deleted files
-    filesCleaned := await cleanupDeletedFiles();
+    filesCleaned := cleanupDeletedFiles();
 
     // Clean up old versions (keep only last 10 for each file)
     for ((fileId, _) in commitsByFile.entries()) {
-      switch (await pruneVersions(fileId, 10)) {
+      switch (pruneVersions(fileId, 10)) {
         case (#ok(count)) { versionsCleaned += count };
         case (#err(_)) { /* Ignore errors */ };
       };
