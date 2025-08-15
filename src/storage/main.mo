@@ -256,7 +256,7 @@ actor {
   };
 
   // Mark file as saved (clear pending changes)
-  public func markSaved(fileId : FileId) : async Result<(), Error> {
+func markSaved(fileId : FileId) : Result<(), Error> {
     switch (autosavePolicies.get(fileId)) {
       case (?state) {
         let updatedState : AutosaveState = {
@@ -306,7 +306,7 @@ actor {
   };
 
   // Remove file from pending autosaves queue
-  public func removeFromPendingAutosaves(fileId : FileId) : () {
+  func removeFromPendingAutosaves(fileId : FileId) : () {
     let newTasks = Buffer.Buffer<AutosaveTask>(0);
 
     for (task in pendingAutosaves.vals()) {
@@ -646,12 +646,12 @@ actor {
   // ===== FILE CREATION =====
 
   // Create a new file with initial content
-  public func createFile(
+  func createFile(
     name : Text,
     mime : Text,
     owner : Principal,
     initialContent : ?Blob
-  ) : async Result<FileId, Error> {
+  ) : Result<FileId, Error> {
 
     // Validate input
     if (Text.size(name) == 0) {
@@ -2523,7 +2523,7 @@ actor {
   ) : async Result<FileId, Error> {
 
     // Create file
-    switch (await createFile(name, mime, caller, initialContent)) {
+    switch (createFile(name, mime, caller, initialContent)) {
       case (#ok(fileId)) {
         // Get chunks for versioning
         switch (await getAllChunks(fileId)) {
@@ -2830,7 +2830,7 @@ actor {
         switch (await saveFunction(fileId, caller)) {
           case (#ok(version)) {
             // Mark as saved
-            ignore await markSaved(fileId);
+            ignore markSaved(fileId);
             #ok(version);
           };
           case (#err(error)) { #err(error) };
