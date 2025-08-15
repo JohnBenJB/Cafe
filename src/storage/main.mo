@@ -63,7 +63,7 @@ actor {
   stable var nextSeq : Seq = 0;
 
   // ===== STABLE TYPE DEFINITIONS =====
-  
+
   // Stable versions of types that contain HashMaps
   public type StableFileStorage = {
     meta : FileMeta;
@@ -72,14 +72,14 @@ actor {
     headVersion : Version;
     isDeleted : Bool;
   };
-  
+
   public type StableVersionStorage = {
     commit : Commit;
     chunks : [(Nat, ContentChunk)]; // Stable array representation of HashMap
   };
 
   // ===== IMMUTABLE RETURN TYPES =====
-  
+
   // Immutable view of FileMeta for shared returns
   public type FileMetaView = {
     id : FileId;
@@ -93,7 +93,7 @@ actor {
     owner : Principal;
     isDeleted : Bool;
   };
-  
+
   // Immutable view of Access for shared returns
   public type AccessView = {
     owner : Principal;
@@ -102,7 +102,7 @@ actor {
   };
 
   // ===== CONVERSION FUNCTIONS =====
-  
+
   // Convert FileStorage to StableFileStorage
   func fileStorageToStable(fileStorage : FileStorage) : StableFileStorage {
     {
@@ -137,7 +137,7 @@ actor {
       isPublic = access.isPublic;
     }
   };
-  
+
   // Convert StableFileStorage to FileStorage
   func stableToFileStorage(stableStorage : StableFileStorage) : FileStorage {
     let chunks = HashMap.HashMap<Nat, ContentChunk>(0, Nat.equal, Hash.hash);
@@ -152,7 +152,7 @@ actor {
       var isDeleted = stableStorage.isDeleted;
     }
   };
-  
+
   // Convert VersionStorage to StableVersionStorage
   func versionStorageToStable(versionStorage : Versions.VersionStorage) : StableVersionStorage {
     {
@@ -160,7 +160,7 @@ actor {
       chunks = Iter.toArray(versionStorage.chunks.entries());
     }
   };
-  
+
   // Convert StableVersionStorage to VersionStorage
   func stableToVersionStorage(stableVersion : StableVersionStorage) : Versions.VersionStorage {
     let chunks = HashMap.HashMap<Nat, ContentChunk>(0, Nat.equal, Hash.hash);
@@ -184,7 +184,7 @@ actor {
   stable var stableAutosavePolicies : [(FileId, Autosave.AutosaveState)] = [];
 
   // ===== STATE MANAGEMENT =====
-    
+
   // Autosave policies by file
   var autosavePolicies = HashMap.HashMap<FileId, AutosaveState>(0, Nat32.equal, func(x : Nat32) : Nat32 { x });
 
@@ -203,7 +203,7 @@ actor {
     fileId : FileId,
     policy : AutosavePolicy
   ) : async Result<(), Error> {
-    
+
     let state : AutosaveState = {
       policy = policy;
       lastActivity = Types.now();
@@ -211,9 +211,9 @@ actor {
       pendingChanges = false;
       autosaveCount = 0;
     };
-    
+
     autosavePolicies.put(fileId, state);
-    
+
     #ok(());
   };
 
@@ -226,7 +226,7 @@ actor {
   };
 
   // ===== ACTIVITY TRACKING =====
-    
+
   // Record activity on a file
   public func recordActivity(fileId : FileId) : async Result<(), Error> {
     switch (autosavePolicies.get(fileId)) {
@@ -239,10 +239,10 @@ actor {
           autosaveCount = state.autosaveCount;
         };
         autosavePolicies.put(fileId, updatedState);
-        
+
         // Add to pending autosaves if not already there
         addToPendingAutosaves(fileId, 1);
-        
+
         #ok(());
       };
       case null {
@@ -267,10 +267,10 @@ actor {
           autosaveCount = state.autosaveCount + 1;
         };
         autosavePolicies.put(fileId, updatedState);
-        
+
         // Remove from pending autosaves
         removeFromPendingAutosaves(fileId);
-        
+
         #ok(());
       };
       case null { #err(#NotFound) };
@@ -295,26 +295,26 @@ actor {
         return; // Already in queue
       };
     };
-    
+
     let task : AutosaveTask = {
       fileId = fileId;
       priority = priority;
       lastActivity = Types.now();
     };
-    
+
     pendingAutosaves.add(task);
   };
 
   // Remove file from pending autosaves queue
   public func removeFromPendingAutosaves(fileId : FileId) : () {
     let newTasks = Buffer.Buffer<AutosaveTask>(0);
-    
+
     for (task in pendingAutosaves.vals()) {
       if (task.fileId != fileId) {
         newTasks.add(task);
       };
     };
-    
+
     pendingAutosaves := newTasks;
   };
 
@@ -322,13 +322,13 @@ actor {
   public func getFilesNeedingAutosave() : async [FileId] {
     let now = Types.now();
     let needingAutosave = Buffer.Buffer<FileId>(0);
-    
+
     label firstLoop for ((fileId, state) in autosavePolicies.entries()) {
       if (not state.policy.enabled) { continue firstLoop };
-      
+
       let timeSinceActivity = now - state.lastActivity;
       let timeSinceLastAutosave = now - state.lastAutosave;
-      
+
       // Check if enough time has passed and file is idle
       if (state.pendingChanges and
           timeSinceLastAutosave >= state.policy.intervalNanos and
@@ -336,7 +336,7 @@ actor {
         needingAutosave.add(fileId);
       };
     };
-    
+
     Buffer.toArray(needingAutosave);
   };
 
@@ -346,30 +346,30 @@ actor {
   //   saveFunction : (FileId, Principal) -> Result<Version, Error>,
   //   user : Principal
   // ) : async Result<Version, Error> {
-    
+
   //   switch (autosavePolicies.get(fileId)) {
   //     case (?state) {
   //       if (not state.policy.enabled) {
   //         return #err(#InvalidOperation);
   //       };
-        
+
   //       let now = Types.now();
   //       let timeSinceActivity = now - state.lastActivity;
   //       let timeSinceLastAutosave = now - state.lastAutosave;
-        
+
   //       // Check if autosave is needed
   //       if (not state.pendingChanges) {
   //         return #err(#InvalidOperation); // No changes to save
   //       };
-        
+
   //       if (timeSinceLastAutosave < state.policy.intervalNanos) {
   //         return #err(#InvalidOperation); // Too soon since last autosave
   //       };
-        
+
   //       if (timeSinceActivity < state.policy.idleNanos) {
   //         return #err(#InvalidOperation); // File not idle enough
   //       };
-        
+
   //       // Perform autosave
   //       switch (saveFunction(fileId, user)) {
   //         case (#ok(version)) {
@@ -389,11 +389,11 @@ actor {
   //   saveFunction : (FileId, Principal) -> Result<Version, Error>,
   //   user : Principal
   // ) : async Result<{ processed : Nat; errors : [Text] }, Error> {
-    
+
   //   let filesToProcess = getFilesNeedingAutosave();
   //   let results = Buffer.Buffer<Text>(0);
   //   var processedCount : Nat = 0;
-    
+
   //   for (fileId in filesToProcess.vals()) {
   //     switch (processAutosave(fileId, saveFunction, user)) {
   //       case (#ok(_)) { processedCount += 1 };
@@ -402,43 +402,43 @@ actor {
   //       };
   //     };
   //   };
-    
+
   //   #ok({
   //     processed = processedCount;
   //     errors = Buffer.toArray(results);
   //   });
   // };
-  
+
   // ===== CLEANUP AND MAINTENANCE =====
-  
+
   // Clean up old autosave policies
   public func cleanupOldPolicies(maxAgeNanos : Nat) : async Result<Nat, Error> {
     let now = Types.now();
     let toRemove = Buffer.Buffer<FileId>(0);
-    
+
     for ((fileId, state) in autosavePolicies.entries()) {
       let timeSinceActivity = now - state.lastActivity;
       if (timeSinceActivity > maxAgeNanos) {
         toRemove.add(fileId);
       };
     };
-    
+
     var removedCount : Nat = 0;
     for (fileId in toRemove.vals()) {
       autosavePolicies.delete(fileId);
       removeFromPendingAutosaves(fileId);
       removedCount += 1;
     };
-    
+
     #ok(removedCount);
   };
-  
+
   // Prune old versions based on autosave policy
   // public func pruneOldVersions(
   //   fileId : FileId,
   //   pruneFunction : (FileId, Nat) -> Result<Nat, Error>
   // ) : async Result<Nat, Error> {
-    
+
   //   switch (autosavePolicies.get(fileId)) {
   //     case (?state) {
   //       pruneFunction(fileId, state.policy.maxVersions);
@@ -446,41 +446,41 @@ actor {
   //     case null { #err(#NotFound) };
   //   };
   // };
-  
+
   // ===== GLOBAL SETTINGS =====
-  
+
   // Set global autosave enabled/disabled
   public func setGlobalAutosaveEnabled(enabled : Bool) : () {
     globalAutosaveEnabled := enabled;
   };
-  
+
   // Get global autosave enabled status
   public func getGlobalAutosaveEnabled() : async Bool {
     globalAutosaveEnabled;
   };
-  
+
   // Set global autosave interval
   public func setGlobalAutosaveInterval(intervalNanos : Nat) : () {
     autosaveIntervalNanos := intervalNanos;
   };
-  
+
   // Get global autosave interval
   public func getGlobalAutosaveInterval() : async Nat {
     autosaveIntervalNanos;
   };
-  
+
   // Set maximum concurrent autosaves
   public func setMaxConcurrentAutosaves(max : Nat) : () {
     maxConcurrentAutosaves := max;
   };
-  
+
   // Get maximum concurrent autosaves
   public func getMaxConcurrentAutosaves() : async Nat {
     maxConcurrentAutosaves;
   };
-  
+
   // ===== STATISTICS =====
-  
+
   // Get autosave statistics for a file
   public func getAutosaveStats(fileId : FileId) : async Result<{ autosaveCount : Nat; lastAutosave : Time.Time; pendingChanges : Bool }, Error> {
     switch (autosavePolicies.get(fileId)) {
@@ -494,48 +494,48 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Get global autosave statistics
   public func getGlobalAutosaveStats() : async { totalFiles : Nat; pendingAutosaves : Nat; enabledFiles : Nat } {
     var totalFiles : Nat = 0;
     var enabledFiles : Nat = 0;
-    
+
     for ((_, state) in autosavePolicies.entries()) {
       totalFiles += 1;
       if (state.policy.enabled) {
         enabledFiles += 1;
       };
     };
-    
+
     {
       totalFiles = totalFiles;
       pendingAutosaves = pendingAutosaves.size();
       enabledFiles = enabledFiles;
     };
   };
-  
+
   // ===== UTILITY FUNCTIONS =====
-  
+
   // Check if autosave is due for a file
   public func isAutosaveDue(fileId : FileId) : async Result<Bool, Error> {
     switch (autosavePolicies.get(fileId)) {
       case (?state) {
         if (not state.policy.enabled) { return #ok(false) };
-        
+
         let now = Types.now();
         let timeSinceActivity = now - state.lastActivity;
         let timeSinceLastAutosave = now - state.lastAutosave;
-        
+
         let due = state.pendingChanges and
                   timeSinceLastAutosave >= state.policy.intervalNanos and
                   timeSinceActivity >= state.policy.idleNanos;
-        
+
         #ok(due);
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Get time until next autosave for a file
   public func getTimeUntilAutosave(fileId : FileId) : async Result<Int, Error> {
     switch (autosavePolicies.get(fileId)) {
@@ -543,42 +543,42 @@ actor {
         if (not state.policy.enabled or not state.pendingChanges) {
           return #ok(0);
         };
-        
+
         let now = Types.now();
         let timeSinceLastAutosave = now - state.lastAutosave;
         let timeSinceActivity = now - state.lastActivity;
-        
+
         let intervalRemaining = if (timeSinceLastAutosave < state.policy.intervalNanos) {
           state.policy.intervalNanos - timeSinceLastAutosave;
         } else {
           0;
         };
-        
+
         let idleRemaining = if (timeSinceActivity < state.policy.idleNanos) {
           state.policy.idleNanos - timeSinceActivity;
         } else {
           0;
         };
-        
+
         let maxRemaining = if (intervalRemaining > idleRemaining) {
           intervalRemaining;
         } else {
           idleRemaining;
         };
-        
+
         #ok(maxRemaining);
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Remove autosave policy for a file
   public func removeAutosavePolicy(fileId : FileId) : async Result<(), Error> {
     autosavePolicies.delete(fileId);
     removeFromPendingAutosaves(fileId);
     #ok(());
   };
-  
+
   // Get all files with autosave policies
   public func getAllAutosaveFiles() : async [FileId] {
     let files = Buffer.Buffer<FileId>(0);
@@ -592,7 +592,7 @@ actor {
     // Serialize file storage using stable conversion
     let filesByIdArr : [(FileId, FileStorage)] = Iter.toArray(filesById.entries());
     let stableFiles : [(FileId, StableFileStorage)]  = Array.map<(FileId, FileStorage), (FileId, StableFileStorage)>(filesByIdArr, func (pair) {let (fileId, fileStorage) = pair; (fileId, fileStorageToStable(fileStorage))});
-    
+
     // Serialize version storage using stable conversion
     let versionEntries = Buffer.Buffer<(FileId, [(Version, StableVersionStorage)])>(0);
     for ((fileId, fileVersions) in commitsByFile.entries()) {
@@ -601,31 +601,31 @@ actor {
       versionEntries.add((fileId, stableVersions));
     };
     stableVersions := Buffer.toArray(versionEntries);
-    
+
     // Serialize events
     let eventEntries = Buffer.Buffer<(FileId, [Event])>(0);
     for ((fileId, buffer) in eventsByFile.entries()) {
       eventEntries.add((fileId, Buffer.toArray(buffer.events)));
     };
     stableEvents := Buffer.toArray(eventEntries);
-    
+
     // Serialize presence
     let presenceEntries = Buffer.Buffer<(FileId, [(ClientId, Realtime.ClientPresence)])>(0);
     for ((fileId, filePresence) in presenceByFile.entries()) {
       presenceEntries.add((fileId, Iter.toArray(filePresence.entries())));
     };
     stablePresence := Buffer.toArray(presenceEntries);
-    
+
     // Serialize subscriptions
     let subscriptionEntries = Buffer.Buffer<(FileId, [(ClientId, Subscription)])>(0);
     for ((fileId, fileSubscriptions) in subscriptionsByFile.entries()) {
       subscriptionEntries.add((fileId, Iter.toArray(fileSubscriptions.entries())));
     };
     stableSubscriptions := Buffer.toArray(subscriptionEntries);
-    
+
     // Serialize autosave policies
     stableAutosavePolicies := Iter.toArray(autosavePolicies.entries());
-    
+
     // Update global counters; Might not be necessary since the stable definition for the variable will be used by all the codes from files and versions
     // nextFileId := nextFileId;
     // nextVersion := nextVersion;
@@ -633,18 +633,18 @@ actor {
   };
 
    // ===== STATE MANAGEMENT =====
-  
+
   // Global counters; commented out because the stable definitions for these variables in the actor are going to be used in the functions
   //that initially came from file.mo and version.mo
   // public var nextFileId : Nat32 = 0;
   // public var nextVersion : Nat64 = 0;
-  
+
   // File storage maps
   var filesById = HashMap.HashMap<FileId, FileStorage>(0, Nat32.equal, func(x : Nat32) : Nat32 { x });
   var fileNamesByOwner = HashMap.HashMap<Principal, HashMap.HashMap<Text, FileId>>(0, Principal.equal, Principal.hash);
 
   // ===== FILE CREATION =====
-  
+
   // Create a new file with initial content
   public func createFile(
     name : Text,
@@ -652,12 +652,12 @@ actor {
     owner : Principal,
     initialContent : ?Blob
   ) : async Result<FileId, Error> {
-    
+
     // Validate input
     if (Text.size(name) == 0) {
       return #err(#InvalidOperation);
     };
-    
+
     // Check if owner already has a file with this name
     switch (fileNamesByOwner.get(owner)) {
       case (?existingFiles) {
@@ -667,41 +667,41 @@ actor {
       };
       case null { /* First file for this owner */ };
     };
-    
+
     // Generate new file ID
     let fileId = nextFileId;
     nextFileId += 1;
-    
+
     // Create initial version
     let version = nextVersion;
     nextVersion += 1;
-    
+
     // Initialize chunks if content provided
     let chunks = HashMap.HashMap<Nat, ContentChunk>(0, Nat.equal, Hash.hash);
     var totalSize : Nat = 0;
     var chunkCount : Nat = 0;
-    
+
     switch (initialContent) {
       case (?content) {
         if (content.size() > Types.MAX_FILE_SIZE) {
           return #err(#FileTooLarge);
         };
-        
+
         // Split content into chunks
         let chunkSize = Types.MAX_CHUNK_SIZE;
         var offset : Nat = 0;
         var chunkIndex : Nat = 0;
-        
+
         while (offset < content.size()) {
           let endOffset = Nat.min(offset + chunkSize, content.size());
           let chunkData = Blob.fromArray(Array.subArray(Blob.toArray(content), offset, endOffset - offset));
-          
+
           let chunk : ContentChunk = {
             index = chunkIndex;
             data = chunkData;
             size = chunkData.size();
           };
-          
+
           chunks.put(chunkIndex, chunk);
           totalSize += chunk.size;
           chunkCount += 1;
@@ -711,7 +711,7 @@ actor {
       };
       case null { /* Empty file */ };
     };
-    
+
     // Create file metadata
     let now = Types.now();
     let meta : FileMeta = {
@@ -726,14 +726,14 @@ actor {
       owner = owner;
       var isDeleted = false;
     };
-    
+
     // Create access control
     let access : Access = {
       owner = owner;
       var sharedWith = [];
       var isPublic = false;
     };
-    
+
     // Store file
     let fileStorage : FileStorage = {
       var meta = meta;
@@ -742,9 +742,9 @@ actor {
       var headVersion = version;
       var isDeleted = false;
     };
-    
+
     filesById.put(fileId, fileStorage);
-    
+
     // Update owner's file name index
     switch (fileNamesByOwner.get(owner)) {
       case (?existingFiles) {
@@ -756,12 +756,12 @@ actor {
         fileNamesByOwner.put(owner, newFileMap);
       };
     };
-    
+
     #ok(fileId);
   };
-  
+
   // ===== FILE READING =====
-  
+
   // Get file metadata
   public func getFileMeta(fileId : FileId) : async Result<FileMetaView, Error> {
     switch (filesById.get(fileId)) {
@@ -774,7 +774,7 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Get file access information
   public func getFileAccess(fileId : FileId) : async Result<AccessView, Error> {
     switch (filesById.get(fileId)) {
@@ -787,7 +787,7 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
     // List files for a user (paginated)
   public shared(msg) func listFiles(
     offset : Nat,
@@ -796,7 +796,7 @@ actor {
     let caller = msg.caller;
     let userFiles = Buffer.Buffer<FileMetaView>(0);
     var total : Nat = 0;
-    
+
     // Iterate through all files
     for ((fileId, file) in filesById.entries()) {
       if (not file.isDeleted) {
@@ -809,16 +809,16 @@ actor {
         };
       };
     };
-    
+
     let nextOffset = if (offset + limit < total) { ?(offset + limit) } else { null };
-    
+
     #ok({
       items = Buffer.toArray(userFiles);
       next = nextOffset;
       total = total;
     });
   };
-  
+
   // Get a specific chunk of file content
   public func getChunk(fileId : FileId, chunkIndex : Nat) : async Result<ContentChunk, Error> {
     switch (filesById.get(fileId)) {
@@ -834,7 +834,7 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Get all chunks for a file
   public func getAllChunks(fileId : FileId) : async Result<[ContentChunk], Error> {
     switch (filesById.get(fileId)) {
@@ -842,7 +842,7 @@ actor {
         if (file.isDeleted) {
           return #err(#NotFound);
         };
-        
+
         let chunkArray = Iter.toArray(file.chunks.entries());
         let sortedChunks = Array.sort(chunkArray, func(a : (Nat, ContentChunk), b : (Nat, ContentChunk)) : { #less; #equal; #greater } {
           if (a.0 < b.0) { #less } else if (a.0 > b.0) { #greater } else { #equal };
@@ -861,11 +861,11 @@ actor {
         if (chunks.size() == 0) {
           return #ok(Blob.fromArray([]));
         };
-        
+
         // Calculate total size
         let totalSize = Types.calculateTotalSize(chunks);
         let buffer = Buffer.Buffer<Nat8>(totalSize);
-        
+
         // Concatenate all chunks
         for (chunk in chunks.vals()) {
           let chunkArray = Blob.toArray(chunk.data);
@@ -873,15 +873,15 @@ actor {
             buffer.add(byte);
           };
         };
-        
+
         #ok(Blob.fromArray(Buffer.toArray(buffer)));
       };
       case (#err(error)) { #err(error) };
     };
   };
-  
+
   // ===== FILE UPDATING =====
-  
+
   // Update file metadata
   public func updateFileMeta(
     fileId : FileId,
@@ -889,24 +889,24 @@ actor {
     mime : ?Text,
     user : Principal
   ) : async Result<(), Error> {
-    
+
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
           return #err(#NotFound);
         };
-        
+
         if (not Types.canEdit(user, file.access)) {
           return #err(#AccessDenied);
         };
-        
+
         // Update name if provided
         switch (name) {
           case (?newName) {
             if (Text.size(newName) == 0) {
               return #err(#InvalidOperation);
             };
-            
+
             // Check for name conflicts
             switch (fileNamesByOwner.get(file.meta.owner)) {
               case (?existingFiles) {
@@ -921,7 +921,7 @@ actor {
               };
               case null { /* No existing files */ };
             };
-            
+
             // Remove old name from index
             switch (fileNamesByOwner.get(file.meta.owner)) {
               case (?existingFiles) {
@@ -930,43 +930,43 @@ actor {
               };
               case null { /* Shouldn't happen */ };
             };
-            
+
             file.meta.name := newName;
           };
           case null { /* Keep existing name */ };
         };
-        
+
         // Update MIME type if provided
         switch (mime) {
           case (?newMime) { file.meta.mime := newMime };
           case null { /* Keep existing MIME */ };
         };
-        
+
         file.meta.updatedAt := Types.now();
-        
+
         #ok(());
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Replace file content with new chunks
   public func replaceFileContent(
     fileId : FileId,
     newChunks : [ContentChunk],
     user : Principal
   ) : async Result<Version, Error> {
-    
+
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
           return #err(#NotFound);
         };
-        
+
         if (not Types.canEdit(user, file.access)) {
           return #err(#AccessDenied);
         };
-        
+
         // Validate chunks
         var totalSize : Nat = 0;
         for (chunk in newChunks.vals()) {
@@ -975,33 +975,33 @@ actor {
           };
           totalSize += chunk.size;
         };
-        
+
         if (totalSize > Types.MAX_FILE_SIZE) {
           return #err(#FileTooLarge);
         };
-        
+
         // Create new version
         let newVersion = nextVersion;
         nextVersion += 1;
-        
+
         // Replace chunks
         let newChunkMap = HashMap.HashMap<Nat, ContentChunk>(0, Nat.equal, Hash.hash);
         for (chunk in newChunks.vals()) {
           newChunkMap.put(chunk.index, chunk);
         };
-        
+
         file.chunks := newChunkMap;
         file.headVersion := newVersion;
         file.meta.size := totalSize;
         file.meta.chunkCount := newChunks.size();
         file.meta.updatedAt := Types.now();
-        
+
         #ok(newVersion);
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Update a specific chunk
   public func updateChunk(
     fileId : FileId,
@@ -1009,34 +1009,34 @@ actor {
     data : Blob,
     user : Principal
   ) : async Result<Version, Error> {
-    
+
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
           return #err(#NotFound);
         };
-        
+
         if (not Types.canEdit(user, file.access)) {
           return #err(#AccessDenied);
         };
-        
+
         // Validate chunk
         if (data.size() > Types.MAX_CHUNK_SIZE) {
           return #err(#InvalidChunk);
         };
-        
+
         let chunk : ContentChunk = {
           index = chunkIndex;
           data = data;
           size = data.size();
         };
-        
+
         // Calculate new total size
         let oldChunk = file.chunks.get(chunkIndex);
         var sizeDiff : Nat = 0;
         var newTotalSize : Nat = 0;
         switch (oldChunk) {
-          case (?old) { 
+          case (?old) {
             if (chunk.size > old.size) {
               sizeDiff := chunk.size - old.size;
               newTotalSize := file.meta.size + sizeDiff;
@@ -1045,35 +1045,35 @@ actor {
               newTotalSize := file.meta.size - sizeDiff;
             }
           };
-          case null { 
+          case null {
             sizeDiff := chunk.size;
             newTotalSize := file.meta.size + sizeDiff;
           };
-          
+
         };
-        
+
         if (newTotalSize > Types.MAX_FILE_SIZE) {
           return #err(#FileTooLarge);
         };
-        
+
         // Create new version
         let newVersion = nextVersion;
         nextVersion += 1;
-        
+
         // Update chunk
         file.chunks.put(chunkIndex, chunk);
         file.headVersion := newVersion;
         file.meta.size := newTotalSize;
         file.meta.updatedAt := Types.now();
-        
+
         #ok(newVersion);
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // ===== FILE DELETION =====
-  
+
   // Soft delete a file
   public func deleteFile(fileId : FileId, user : Principal) : async Result<(), Error> {
     switch (filesById.get(fileId)) {
@@ -1081,15 +1081,15 @@ actor {
         if (file.isDeleted) {
           return #err(#NotFound);
         };
-        
+
         if (not Types.isOwner(user, file.access)) {
           return #err(#AccessDenied);
         };
-        
+
         file.isDeleted := true;
         file.meta.isDeleted := true;
         file.meta.updatedAt := Types.now();
-        
+
         // Remove from owner's file name index
         switch (fileNamesByOwner.get(file.meta.owner)) {
           case (?existingFiles) {
@@ -1097,13 +1097,13 @@ actor {
           };
           case null { /* Shouldn't happen */ };
         };
-        
+
         #ok(());
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Restore a deleted file
   public func restoreFile(fileId : FileId, user : Principal) : async Result<(), Error> {
     switch (filesById.get(fileId)) {
@@ -1111,15 +1111,15 @@ actor {
         if (not file.isDeleted) {
           return #err(#InvalidOperation);
         };
-        
+
         if (not Types.isOwner(user, file.access)) {
           return #err(#AccessDenied);
         };
-        
+
         file.isDeleted := false;
         file.meta.isDeleted := false;
         file.meta.updatedAt := Types.now();
-        
+
         // Add back to owner's file name index
         switch (fileNamesByOwner.get(file.meta.owner)) {
           case (?existingFiles) {
@@ -1131,15 +1131,15 @@ actor {
             fileNamesByOwner.put(file.meta.owner, newFileMap);
           };
         };
-        
+
         #ok(());
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // ===== ACCESS CONTROL =====
-  
+
   // Share file with another user
   public func shareFile(
     fileId : FileId,
@@ -1147,17 +1147,17 @@ actor {
     role : Role,
     user : Principal
   ) : async Result<(), Error> {
-    
+
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
           return #err(#NotFound);
         };
-        
+
         if (not Types.isOwner(user, file.access)) {
           return #err(#AccessDenied);
         };
-        
+
         // Check if already shared
         for ((sharedUser, existingRole) in file.access.sharedWith.vals()) {
           if (Principal.equal(sharedUser, targetUser)) {
@@ -1176,34 +1176,34 @@ actor {
             return #ok(());
           };
         };
-        
+
         // Add new share
         let newShared = Array.append(file.access.sharedWith, [(targetUser, role)]);
         file.access.sharedWith := newShared;
-        
+
         #ok(());
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Revoke access for a user
   public func revokeAccess(
     fileId : FileId,
     targetUser : Principal,
     user : Principal
   ) : async Result<(), Error> {
-    
+
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
           return #err(#NotFound);
         };
-        
+
         if (not Types.isOwner(user, file.access)) {
           return #err(#AccessDenied);
         };
-        
+
         // Remove user from shared list
         let filteredShared = Array.filter<(Principal, Role)>(
           file.access.sharedWith,
@@ -1212,40 +1212,40 @@ actor {
           }
         );
         file.access.sharedWith := filteredShared;
-        
+
         #ok(());
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Set public access
   public func setPublicAccess(
     fileId : FileId,
     isPublic : Bool,
     user : Principal
   ) : async Result<(), Error> {
-    
+
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
           return #err(#NotFound);
         };
-        
+
         if (not Types.isOwner(user, file.access)) {
           return #err(#AccessDenied);
         };
-        
+
         file.access.isPublic := isPublic;
-        
+
         #ok(());
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // ===== UTILITY FUNCTIONS =====
-  
+
   // Check if file exists and user has access
   public func hasAccess(fileId : FileId, user : Principal, requiredRole : Role) : async Bool {
     switch (filesById.get(fileId)) {
@@ -1256,7 +1256,7 @@ actor {
       case null { false };
     };
   };
-  
+
   // Get file count for a user
   public func getUserFileCount(user : Principal) : async Nat {
     var count : Nat = 0;
@@ -1267,7 +1267,7 @@ actor {
     };
     count;
   };
-  
+
   // Get total storage used by a user
   public func getUserStorageUsed(user : Principal) : async Nat {
     var total : Nat = 0;
@@ -1278,45 +1278,52 @@ actor {
     };
     total;
   };
-  
+
   // Clean up deleted files (permanent deletion)
   public func cleanupDeletedFiles() : async Nat {
     var deletedCount : Nat = 0;
     let toDelete = Buffer.Buffer<FileId>(0);
-    
+
     for ((fileId, file) in filesById.entries()) {
       if (file.isDeleted) {
         toDelete.add(fileId);
       };
     };
-    
+
     for (fileId in toDelete.vals()) {
       filesById.delete(fileId);
       deletedCount += 1;
     };
-    
+
     deletedCount;
   };
 
    // ===== STATE MANAGEMENT =====
-  
+
   // Global sequence counter; commented out because the stable declaration for this variable in the actor already suffices.
   // public var nextSeq : Seq = 0;
-  
+
   // Event storage
-  var eventsByFile = HashMap.HashMap<FileId, EventRingBuffer>(0, Nat32.equal, Hash.hash);
-  
+  var eventsByFile = HashMap.HashMap<FileId, EventRingBuffer>(0, Nat32.equal,
+  func(fileId : FileId) : Hash.Hash { Hash.hash(Nat32.toNat(fileId)) });
+
   // Client subscriptions
-  var subscriptionsByFile = HashMap.HashMap<FileId, HashMap.HashMap<ClientId, Subscription>>(0, Nat32.equal, Hash.hash);
-  
+  var subscriptionsByFile = HashMap.HashMap<FileId, HashMap.HashMap<ClientId,
+  Subscription>>(0, Nat32.equal, func(fileId : Nat32) : Hash.Hash
+  {Hash.hash(Nat32.toNat(fileId))});
+
   // Client presence and cursors
-  var presenceByFile = HashMap.HashMap<FileId, HashMap.HashMap<ClientId, ClientPresence>>(0, Nat32.equal, Hash.hash);
+  var presenceByFile = HashMap.HashMap<FileId, HashMap.HashMap<ClientId,
+  ClientPresence>>(0, Nat32.equal, func(fileId : Nat32) : Hash.Hash
+  {Hash.hash(Nat32.toNat(fileId))});
 
   // Deduplication of client operations
-  var dedupeOpIdsByFile = HashMap.HashMap<FileId, HashMap.HashMap<Text, Time.Time>>(0, Nat32.equal, Hash.hash);
+  var dedupeOpIdsByFile = HashMap.HashMap<FileId, HashMap.HashMap<Text,
+  Time.Time>>(0, Nat32.equal, func(fileId : Nat32) : Hash.Hash
+  {Hash.hash(Nat32.toNat(fileId))});
 
   // ===== EVENT MANAGEMENT =====
-  
+
   // Create a new event ring buffer
   func createEventBuffer(fileId : FileId) : EventRingBuffer {
     {
@@ -1325,13 +1332,13 @@ actor {
       var startSeq = nextSeq;
     };
   };
-  
+
   // Add event to ring buffer
   public func addEvent(fileId : FileId, event : Event) : () {
     switch (eventsByFile.get(fileId)) {
       case (?buffer) {
         buffer.events.add(event);
-        
+
         // Maintain bounded size
         if (buffer.events.size() > buffer.maxSize) {
           let removed = buffer.events.remove(0);
@@ -1345,26 +1352,26 @@ actor {
       };
     };
   };
-  
+
   // Get events since a specific sequence number
   public func getEvents(
     fileId : FileId,
     since : Seq,
     maxEvents : Nat
   ) : async Result<{ events : [Event]; nextSince : Seq }, Error> {
-    
+
     switch (eventsByFile.get(fileId)) {
       case (?buffer) {
         let events = Buffer.Buffer<Event>(0);
         var nextSince = since;
-        
+
         for (event in buffer.events.vals()) {
           if (event.seq > since and events.size() < maxEvents) {
             events.add(event);
             nextSince := event.seq;
           };
         };
-        
+
         #ok({
           events = Buffer.toArray(events);
           nextSince = nextSince;
@@ -1373,16 +1380,16 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
   // ===== PRESENCE MANAGEMENT =====
-  
+
   // Join a file (start presence)
   public func joinFile(
     fileId : FileId,
     clientId : ClientId,
     user : Principal
   ) : async Result<Seq, Error> {
-    
+
     // Create presence entry
     let presence : ClientPresence = {
       clientId = clientId;
@@ -1390,7 +1397,7 @@ actor {
       lastSeen = Types.now();
       cursor = null;
     };
-    
+
     // Store presence
     switch (presenceByFile.get(fileId)) {
       case (?filePresence) {
@@ -1402,7 +1409,7 @@ actor {
         presenceByFile.put(fileId, newFilePresence);
       };
     };
-    
+
     // Create join event
     let event : Event = {
       seq = nextSeq;
@@ -1411,18 +1418,18 @@ actor {
       time = Types.now();
     };
     nextSeq += 1;
-    
+
     addEvent(fileId, event);
-    
+
     #ok(event.seq);
   };
-  
+
   // Leave a file (end presence)
   public func leaveFile(
     fileId : FileId,
     clientId : ClientId
   ) : async Result<(), Error> {
-    
+
     // Remove presence
     switch (presenceByFile.get(fileId)) {
       case (?filePresence) {
@@ -1430,7 +1437,7 @@ actor {
       };
       case null { /* No presence to remove */ };
     };
-    
+
     // Create leave event
     let event : Event = {
       seq = nextSeq;
@@ -1439,19 +1446,19 @@ actor {
       time = Types.now();
     };
     nextSeq += 1;
-    
+
     addEvent(fileId, event);
-    
+
     #ok(());
   };
-  
+
   // Update client heartbeat and cursor
   public func updatePresence(
     fileId : FileId,
     clientId : ClientId,
     cursor : ?Cursor
   ) : async Result<(), Error> {
-    
+
     switch (presenceByFile.get(fileId)) {
       case (?filePresence) {
         switch (filePresence.get(clientId)) {
@@ -1464,7 +1471,7 @@ actor {
               cursor = cursor;
             };
             filePresence.put(clientId, updatedPresence);
-            
+
             // Create cursor update event if cursor provided
             switch (cursor) {
               case (?cursorData) {
@@ -1485,48 +1492,48 @@ actor {
       };
       case null { return #err(#NotFound) };
     };
-    
+
     #ok(());
   };
-  
+
   // Get all active clients for a file
   public func getActiveClients(fileId : FileId) : async Result<[ClientPresence], Error> {
     switch (presenceByFile.get(fileId)) {
       case (?filePresence) {
         let clients = Buffer.Buffer<ClientPresence>(0);
         let now = Types.now();
-        
+
         for ((clientId, presence) in filePresence.entries()) {
           // Check if client is still active (within timeout)
           if ((now - presence.lastSeen) < Types.CURSOR_TIMEOUT_NANOS) {
             clients.add(presence);
           };
         };
-        
+
         #ok(Buffer.toArray(clients));
       };
       case null { #ok([]) };
     };
   };
-  
+
   // Clean up stale clients
   public func cleanupStaleClients(fileId : FileId) : async Result<Nat, Error> {
     switch (presenceByFile.get(fileId)) {
       case (?filePresence) {
         let now = Types.now();
         let toRemove = Buffer.Buffer<ClientId>(0);
-        
+
         for ((clientId, presence) in filePresence.entries()) {
           if ((now - presence.lastSeen) >= Types.CURSOR_TIMEOUT_NANOS) {
             toRemove.add(clientId);
           };
         };
-        
+
         var removedCount : Nat = 0;
         for (clientId in toRemove.vals()) {
           filePresence.delete(clientId);
           removedCount += 1;
-          
+
           // Create leave event for stale client
           let event : Event = {
             seq = nextSeq;
@@ -1537,29 +1544,29 @@ actor {
           nextSeq += 1;
           addEvent(fileId, event);
         };
-        
+
         #ok(removedCount);
       };
       case null { #ok(0) };
     };
   };
-  
+
   // ===== SUBSCRIPTION MANAGEMENT =====
-  
+
   // Subscribe to file events
   public func subscribe(
     fileId : FileId,
     clientId : ClientId,
     user : Principal
   ) : async Result<Subscription, Error> {
-    
+
     let subscription : Subscription = {
       clientId = clientId;
       since = nextSeq;
       lastPolled = Types.now();
       user = user;
     };
-    
+
     // Store subscription
     switch (subscriptionsByFile.get(fileId)) {
       case (?fileSubscriptions) {
@@ -1571,10 +1578,10 @@ actor {
         subscriptionsByFile.put(fileId, newFileSubscriptions);
       };
     };
-    
+
     #ok(subscription);
   };
-  
+
   // Unsubscribe from file events
   public func unsubscribe(fileId : FileId, clientId : ClientId) : async Result<(), Error> {
     switch (subscriptionsByFile.get(fileId)) {
@@ -1585,14 +1592,14 @@ actor {
       case null { #ok(()) };
     };
   };
-  
+
   // Update subscription last polled time
   public func updateSubscriptionPolled(
     fileId : FileId,
     clientId : ClientId,
     since : Seq
   ) : async Result<(), Error> {
-    
+
     switch (subscriptionsByFile.get(fileId)) {
       case (?fileSubscriptions) {
         switch (fileSubscriptions.get(clientId)) {
@@ -1612,7 +1619,7 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Get all subscriptions for a file
   public func getSubscriptions(fileId : FileId) : async Result<[Subscription], Error> {
     switch (subscriptionsByFile.get(fileId)) {
@@ -1626,15 +1633,15 @@ actor {
       case null { #ok([]) };
     };
   };
-  
+
   // ===== PATCH PROCESSING =====
-  
+
   // Check if operation is duplicate
   public func isDuplicateOperation(
     fileId : FileId,
     clientOpId : Text
   ) : async Bool {
-    
+
     switch (dedupeOpIdsByFile.get(fileId)) {
       case (?fileOpIds) {
         Option.isSome(fileOpIds.get(clientOpId));
@@ -1642,13 +1649,13 @@ actor {
       case null { false };
     };
   };
-  
+
   // Record operation as processed
   public func recordOperation(
     fileId : FileId,
     clientOpId : Text
   ) : () {
-    
+
     switch (dedupeOpIdsByFile.get(fileId)) {
       case (?fileOpIds) {
         fileOpIds.put(clientOpId, Types.now());
@@ -1660,49 +1667,49 @@ actor {
       };
     };
   };
-  
+
   // Clean up old operation IDs
   public func cleanupOldOperations(fileId : FileId, maxAgeNanos : Nat) : async Result<Nat, Error> {
     switch (dedupeOpIdsByFile.get(fileId)) {
       case (?fileOpIds) {
         let now = Types.now();
         let toRemove = Buffer.Buffer<Text>(0);
-        
+
         for ((opId, timestamp) in fileOpIds.entries()) {
           if ((now - timestamp) > maxAgeNanos) {
             toRemove.add(opId);
           };
         };
-        
+
         var removedCount : Nat = 0;
         for (opId in toRemove.vals()) {
           fileOpIds.delete(opId);
           removedCount += 1;
         };
-        
+
         #ok(removedCount);
       };
       case null { #ok(0) };
     };
   };
-  
+
   // ===== LIVE EDITING SUPPORT =====
-  
+
   // Apply a patch and create events
   public func applyPatch(
     fileId : FileId,
     patch : Patch,
     commit : Types.Commit
   ) : async Result<Seq, Error> {
-    
+
     // Check for duplicate operation
     if (await isDuplicateOperation(fileId, patch.clientOpId)) {
       return #err(#DuplicateOperation);
     };
-    
+
     // Record operation
     recordOperation(fileId, patch.clientOpId);
-    
+
     // Create patch applied event
     let event : Event = {
       seq = nextSeq;
@@ -1711,18 +1718,18 @@ actor {
       time = Types.now();
     };
     nextSeq += 1;
-    
+
     addEvent(fileId, event);
-    
+
     #ok(event.seq);
   };
-  
+
   // Create snapshot event
   public func createSnapshotEvent(
     fileId : FileId,
     version : Version
   ) : async Result<Seq, Error> {
-    
+
     let event : Event = {
       seq = nextSeq;
       fileId = fileId;
@@ -1730,18 +1737,18 @@ actor {
       time = Types.now();
     };
     nextSeq += 1;
-    
+
     addEvent(fileId, event);
-    
+
     #ok(event.seq);
   };
-  
+
   // Create file deleted event
   public func createFileDeletedEvent(
     fileId : FileId,
     by : Principal
   ) : async Result<Seq, Error> {
-    
+
     let event : Event = {
       seq = nextSeq;
       fileId = fileId;
@@ -1749,18 +1756,18 @@ actor {
       time = Types.now();
     };
     nextSeq += 1;
-    
+
     addEvent(fileId, event);
-    
+
     #ok(event.seq);
   };
-  
+
   // Create file restored event
   public func createFileRestoredEvent(
     fileId : FileId,
     by : Principal
   ) : async Result<Seq, Error> {
-    
+
     let event : Event = {
       seq = nextSeq;
       fileId = fileId;
@@ -1768,19 +1775,19 @@ actor {
       time = Types.now();
     };
     nextSeq += 1;
-    
+
     addEvent(fileId, event);
-    
+
     #ok(event.seq);
   };
-  
+
   // ===== UTILITY FUNCTIONS =====
-  
+
   // Get current sequence number
   public func getCurrentSeq() : async Seq {
     nextSeq;
   };
-  
+
   // Get event count for a file
   public func getEventCount(fileId : FileId) : async Nat {
     switch (eventsByFile.get(fileId)) {
@@ -1788,7 +1795,7 @@ actor {
       case null { 0 };
     };
   };
-  
+
   // Get active client count for a file
   public func getActiveClientCount(fileId : FileId) : async Nat {
     switch (presenceByFile.get(fileId)) {
@@ -1796,7 +1803,7 @@ actor {
       case null { 0 };
     };
   };
-  
+
   // Get subscription count for a file
   public func getSubscriptionCount(fileId : FileId) : async Nat {
     switch (subscriptionsByFile.get(fileId)) {
@@ -1804,7 +1811,7 @@ actor {
       case null { 0 };
     };
   };
-  
+
   // Check if client is active
   public func isClientActive(fileId : FileId, clientId : ClientId) : async Bool {
     switch (presenceByFile.get(fileId)) {
@@ -1820,7 +1827,7 @@ actor {
       case null { false };
     };
   };
-  
+
   // Get client cursor
   public func getClientCursor(fileId : FileId, clientId : ClientId) : async Result<Cursor, Error> {
     switch (presenceByFile.get(fileId)) {
@@ -1838,14 +1845,14 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Get all cursors for a file
   public func getAllCursors(fileId : FileId) : async Result<[Cursor], Error> {
     switch (presenceByFile.get(fileId)) {
       case (?filePresence) {
         let cursors = Buffer.Buffer<Cursor>(0);
         let now = Types.now();
-        
+
         for ((_, presence) in filePresence.entries()) {
           // Only include active clients with cursors
           if ((now - presence.lastSeen) < Types.CURSOR_TIMEOUT_NANOS) {
@@ -1855,29 +1862,29 @@ actor {
             };
           };
         };
-        
+
         #ok(Buffer.toArray(cursors));
       };
       case null { #ok([]) };
     };
   };
-  
+
   // Clean up all data for a file
   public func cleanupFileData(fileId : FileId) : async Result<{ events : Nat; presence : Nat; subscriptions : Nat; operations : Nat }, Error> {
     let eventCount = await getEventCount(fileId);
     let presenceCount = await getActiveClientCount(fileId);
     let subscriptionCount = await getSubscriptionCount(fileId);
-    
+
     let operationCount = switch (dedupeOpIdsByFile.get(fileId)) {
       case (?fileOpIds) { fileOpIds.size() };
       case null { 0 };
     };
-    
+
     eventsByFile.delete(fileId);
     presenceByFile.delete(fileId);
     subscriptionsByFile.delete(fileId);
     dedupeOpIdsByFile.delete(fileId);
-    
+
     #ok({
       events = eventCount;
       presence = presenceCount;
@@ -1887,10 +1894,10 @@ actor {
   };
 
   // ===== STATE MANAGEMENT =====
-  
+
   // Global version counter; commented out because stable var definition at the top of actor suffices
   // public var nextVersion : Nat = 0;
-  
+
   // Version storage maps
   var commitsByFile = HashMap.HashMap<FileId, HashMap.HashMap<Version, VersionStorage>>(0, Nat32.equal, func(x : Nat32) : Nat32 { x });
   var headsByFile = HashMap.HashMap<FileId, Version>(0, Nat32.equal, func(x : Nat32) : Nat32 { x });
@@ -1901,10 +1908,10 @@ actor {
     chunks : [ContentChunk],
     owner : Principal
   ) : async Result<Version, Error> {
-    
+
     let version = nextVersion;
     nextVersion += 1;
-    
+
     // Create initial commit
     let commit : Commit = {
       version = version;
@@ -1922,18 +1929,18 @@ actor {
       size = Types.calculateTotalSize(chunks);
       chunkCount = chunks.size();
     };
-    
+
     // Store chunks
     let chunkMap = HashMap.HashMap<Nat, ContentChunk>(0, Nat.equal, Hash.hash);
     for (chunk in chunks.vals()) {
       chunkMap.put(chunk.index, chunk);
     };
-    
+
     let versionStorage : VersionStorage = {
       commit = commit;
       chunks = chunkMap;
     };
-    
+
     // Store version
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
@@ -1945,13 +1952,13 @@ actor {
         commitsByFile.put(fileId, newFileVersions);
       };
     };
-    
+
     // Set as head
     headsByFile.put(fileId, version);
-    
+
     #ok(version);
   };
-  
+
   // Create a new commit from a patch
   public func createCommit(
     fileId : FileId,
@@ -1960,22 +1967,22 @@ actor {
     message : ?Text,
     newChunks : [ContentChunk]
   ) : async Result<Version, Error> {
-    
+
     // Get current head
     let currentHead = switch (headsByFile.get(fileId)) {
       case (?head) { head };
       case null { return #err(#NotFound) };
     };
-    
+
     // Validate patch base version
     if (patch.base != currentHead) {
       return #err(#Conflict);
     };
-    
+
     // Create new version
     let newVersion = nextVersion;
     nextVersion += 1;
-    
+
     // Create commit
     let commit : Commit = {
       version = newVersion;
@@ -1987,18 +1994,18 @@ actor {
       size = Types.calculateTotalSize(newChunks);
       chunkCount = newChunks.size();
     };
-    
+
     // Store chunks
     let chunkMap = HashMap.HashMap<Nat, ContentChunk>(0, Nat.equal, Hash.hash);
     for (chunk in newChunks.vals()) {
       chunkMap.put(chunk.index, chunk);
     };
-    
+
     let versionStorage : VersionStorage = {
       commit = commit;
       chunks = chunkMap;
     };
-    
+
     // Store version
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
@@ -2010,13 +2017,13 @@ actor {
         commitsByFile.put(fileId, newFileVersions);
       };
     };
-    
+
     // Update head
     headsByFile.put(fileId, newVersion);
-    
+
     #ok(newVersion);
   };
-  
+
   // Create a snapshot (manual save point)
   public func createSnapshot(
     fileId : FileId,
@@ -2024,17 +2031,17 @@ actor {
     message : ?Text,
     chunks : [ContentChunk]
   ) : async Result<Version, Error> {
-    
+
     // Get current head
     let currentHead = switch (headsByFile.get(fileId)) {
       case (?head) { head };
       case null { return #err(#NotFound) };
     };
-    
+
     // Create new version
     let newVersion = nextVersion;
     nextVersion += 1;
-    
+
     // Create snapshot commit
     let commit : Commit = {
       version = newVersion;
@@ -2052,18 +2059,18 @@ actor {
       size = Types.calculateTotalSize(chunks);
       chunkCount = chunks.size();
     };
-    
+
     // Store chunks
     let chunkMap = HashMap.HashMap<Nat, ContentChunk>(0, Nat.equal, Hash.hash);
     for (chunk in chunks.vals()) {
       chunkMap.put(chunk.index, chunk);
     };
-    
+
     let versionStorage : VersionStorage = {
       commit = commit;
       chunks = chunkMap;
     };
-    
+
     // Store version
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
@@ -2075,15 +2082,15 @@ actor {
         commitsByFile.put(fileId, newFileVersions);
       };
     };
-    
+
     // Update head
     headsByFile.put(fileId, newVersion);
-    
+
     #ok(newVersion);
   };
-  
+
   // ===== VERSION READING =====
-  
+
   // Get commit information for a specific version
   public func getCommit(fileId : FileId, version : Version) : async Result<Commit, Error> {
     switch (commitsByFile.get(fileId)) {
@@ -2096,7 +2103,7 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Get chunks for a specific version
   public func getVersionChunks(fileId : FileId, version : Version) : async Result<[ContentChunk], Error> {
     switch (commitsByFile.get(fileId)) {
@@ -2107,7 +2114,7 @@ actor {
             let sortedChunks = Array.sort(chunkArray, func(a : (Nat, ContentChunk), b : (Nat, ContentChunk)) : { #less; #equal; #greater } {
               if (a.0 < b.0) { #less } else if (a.0 > b.0) { #greater } else { #equal };
             });
-            
+
             let chunks = Array.map<(Nat, ContentChunk), ContentChunk>(sortedChunks, func(pair) { pair.1 });
             #ok(chunks);
           };
@@ -2117,7 +2124,7 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Get a specific chunk from a version
   public func getVersionChunk(fileId : FileId, version : Version, chunkIndex : Nat) : async Result<ContentChunk, Error> {
     switch (commitsByFile.get(fileId)) {
@@ -2135,7 +2142,7 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Get current head version for a file
   public func getHeadVersion(fileId : FileId) : async Result<Version, Error> {
     switch (headsByFile.get(fileId)) {
@@ -2143,34 +2150,34 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
   // List versions for a file (paginated)
   public func listVersions(
     fileId : FileId,
     offset : Nat,
     limit : Nat
   ) : async Result<Paginated<Commit>, Error> {
-    
+
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
         let commits = Buffer.Buffer<Commit>(0);
         var total : Nat = 0;
-        
+
         // Convert to array and sort by version (newest first)
         let versionArray = Iter.toArray(fileVersions.entries());
         let sortedVersions = Array.sort(versionArray, func(a : (Version, VersionStorage), b : (Version, VersionStorage)) : { #less; #equal; #greater } {
           if (a.0 > b.0) { #less } else if (a.0 < b.0) { #greater } else { #equal };
         });
-        
+
         for ((version, versionStorage) in sortedVersions.vals()) {
           total += 1;
           if (commits.size() < limit and total > offset) {
             commits.add(versionStorage.commit);
           };
         };
-        
+
         let nextOffset = if (offset + limit < total) { ?(offset + limit) } else { null };
-        
+
         #ok({
           items = Buffer.toArray(commits);
           next = nextOffset;
@@ -2180,14 +2187,14 @@ actor {
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Get version history (linear chain)
   public func getVersionHistory(fileId : FileId, fromVersion : Version) : async Result<[Commit], Error> {
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
         let history = Buffer.Buffer<Commit>(0);
         var currentVersion = fromVersion;
-        
+
         label secondloop while (currentVersion > 0) {
           switch (fileVersions.get(currentVersion)) {
             case (?versionStorage) {
@@ -2197,51 +2204,51 @@ actor {
             case null { break secondloop };
           };
         };
-        
+
         #ok(Buffer.toArray(history));
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // ===== VERSION COMPARISON =====
-  
+
   // Get differences between two versions (for text files)
   public func getVersionDiff(
     fileId : FileId,
     fromVersion : Version,
     toVersion : Version
   ) : async Result<[EditOp], Error> {
-    
+
     // Get commits for both versions
     let fromCommit = switch (await getCommit(fileId, fromVersion)) {
       case (#ok(commit)) { commit };
       case (#err(error)) { return #err(error) };
     };
-    
+
     let toCommit = switch (await getCommit(fileId, toVersion)) {
       case (#ok(commit)) { commit };
       case (#err(error)) { return #err(error) };
     };
-    
+
     // For now, return the patch operations from the target version
     // In a more sophisticated implementation, you would compute the actual diff
     #ok(toCommit.patch.ops);
   };
-  
+
   // Check if one version is ancestor of another
   public func isAncestor(
     fileId : FileId,
     ancestor : Version,
     descendant : Version
   ) : async Result<Bool, Error> {
-    
+
     if (ancestor == descendant) { return #ok(true) };
-    
+
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
         var currentVersion = descendant;
-        
+
         label thirdloop while (currentVersion > 0) {
           switch (fileVersions.get(currentVersion)) {
             case (?versionStorage) {
@@ -2253,15 +2260,15 @@ actor {
             case null { break thirdloop};
           };
         };
-        
+
         #ok(false);
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // ===== VERSION ROLLBACK =====
-  
+
   // Rollback to a specific version
   public func rollbackToVersion(
     fileId : FileId,
@@ -2269,23 +2276,23 @@ actor {
     author : Principal,
     chunks : [ContentChunk]
   ) : async Result<Version, Error> {
-    
+
     // Verify target version exists
     switch (await getCommit(fileId, targetVersion)) {
       case (#ok(_)) { /* Version exists */ };
       case (#err(error)) { return #err(error) };
     };
-    
+
     // Get current head
     let currentHead = switch (headsByFile.get(fileId)) {
       case (?head) { head };
       case null { return #err(#NotFound) };
     };
-    
+
     // Create rollback commit
     let newVersion = nextVersion;
     nextVersion += 1;
-    
+
     let commit : Commit = {
       version = newVersion;
       parent = currentHead;
@@ -2302,18 +2309,18 @@ actor {
       size = Types.calculateTotalSize(chunks);
       chunkCount = chunks.size();
     };
-    
+
     // Store chunks
     let chunkMap = HashMap.HashMap<Nat, ContentChunk>(0, Nat.equal, Hash.hash);
     for (chunk in chunks.vals()) {
       chunkMap.put(chunk.index, chunk);
     };
-    
+
     let versionStorage : VersionStorage = {
       commit = commit;
       chunks = chunkMap;
     };
-    
+
     // Store version
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
@@ -2325,34 +2332,34 @@ actor {
         commitsByFile.put(fileId, newFileVersions);
       };
     };
-    
+
     // Update head
     headsByFile.put(fileId, newVersion);
-    
+
     #ok(newVersion);
   };
-  
+
   // ===== VERSION CLEANUP =====
-  
+
   // Prune old versions (keep only recent ones)
   public func pruneVersions(
     fileId : FileId,
     keepCount : Nat
   ) : async Result<Nat, Error> {
-    
+
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
         let versionArray = Iter.toArray(fileVersions.entries());
         let sortedVersions = Array.sort(versionArray, func(a : (Version, VersionStorage), b : (Version, VersionStorage)) : { #less; #equal; #greater } {
           if (a.0 > b.0) { #less } else if (a.0 < b.0) { #greater } else { #equal };
         });
-        
+
         var deletedCount : Nat = 0;
         let headVersion = switch (headsByFile.get(fileId)) {
           case (?head) { head };
           case null { return #err(#NotFound) };
         };
-        
+
         // Keep the head version and the specified number of recent versions
         for ((version, _) in sortedVersions.vals()) {
           if (version != headVersion and deletedCount < sortedVersions.size() - keepCount) {
@@ -2360,13 +2367,13 @@ actor {
             deletedCount += 1;
           };
         };
-        
+
         #ok(deletedCount);
       };
       case null { #err(#NotFound) };
     };
   };
-  
+
   // Delete all versions for a file
   public func deleteAllVersions(fileId : FileId) : async Result<Nat, Error> {
     switch (commitsByFile.get(fileId)) {
@@ -2379,9 +2386,9 @@ actor {
       case null { #ok(0) };
     };
   };
-  
+
   // ===== UTILITY FUNCTIONS =====
-  
+
   // Get version count for a file
   public func getVersionCount(fileId : FileId) : async Nat {
     switch (commitsByFile.get(fileId)) {
@@ -2389,7 +2396,7 @@ actor {
       case null { 0 };
     };
   };
-  
+
   // Get total storage used by versions
   public func getVersionStorageUsed(fileId : FileId) : async Nat {
     switch (commitsByFile.get(fileId)) {
@@ -2403,7 +2410,7 @@ actor {
       case null { 0 };
     };
   };
-  
+
   // Check if version exists
   public func versionExists(fileId : FileId, version : Version) : async Bool {
     switch (commitsByFile.get(fileId)) {
@@ -2411,7 +2418,7 @@ actor {
       case null { false };
     };
   };
-  
+
   // Get latest commit message
   public func getLatestCommitMessage(fileId : FileId) : async Result<Text, Error> {
     switch (await getHeadVersion(fileId)) {
@@ -2429,7 +2436,7 @@ actor {
       case (#err(error)) { #err(error) };
     };
   };
-  
+
   // Get commit author
   public func getCommitAuthor(fileId : FileId, version : Version) : async Result<Principal, Error> {
     switch (await getCommit(fileId, version)) {
@@ -2437,7 +2444,7 @@ actor {
       case (#err(error)) { #err(error) };
     };
   };
-  
+
   // Get commit timestamp
   public func getCommitTime(fileId : FileId, version : Version) : async Result<Time.Time, Error> {
     switch (await getCommit(fileId, version)) {
@@ -2452,7 +2459,7 @@ actor {
       let fileStorage = stableToFileStorage(stableFileStorage);
       filesById.put(fileId, fileStorage);
     };
-    
+
     // Restore version storage using stable conversion
     for ((fileId, versionEntries) in stableVersions.vals()) {
       let fileVersions = HashMap.HashMap<Version, Versions.VersionStorage>(0, Nat.equal, Hash.hash);
@@ -2462,7 +2469,7 @@ actor {
       };
       commitsByFile.put(fileId, fileVersions);
     };
-    
+
     // Restore events
     for ((fileId, events) in stableEvents.vals()) {
       let buffer = createEventBuffer(fileId);
@@ -2471,7 +2478,7 @@ actor {
       };
       eventsByFile.put(fileId, buffer);
     };
-    
+
     // Restore presence
     for ((fileId, presenceEntries) in stablePresence.vals()) {
       let filePresence = HashMap.HashMap<ClientId, Realtime.ClientPresence>(0, Text.equal, Text.hash);
@@ -2480,7 +2487,7 @@ actor {
       };
       presenceByFile.put(fileId, filePresence);
     };
-    
+
     // Restore subscriptions
     for ((fileId, subscriptionEntries) in stableSubscriptions.vals()) {
       let fileSubscriptions = HashMap.HashMap<ClientId, Subscription>(0, Text.equal, Text.hash);
@@ -2489,18 +2496,18 @@ actor {
       };
       subscriptionsByFile.put(fileId, fileSubscriptions);
     };
-    
+
     // Restore autosave policies
     for ((fileId, state) in stableAutosavePolicies.vals()) {
       autosavePolicies.put(fileId, state);
     };
-    
-    // Restore global counters; commented out because the variables are already stable and don't need to recieve the state of 
+
+    // Restore global counters; commented out because the variables are already stable and don't need to recieve the state of
     //the variables from the different modules since all the functions have been moved to the main file from those modules.
     // nextFileId := nextFileId;
     // nextVersion := nextVersion;
     // nextSeq := nextSeq;
-    
+
     // Clear stable arrays
     stableFiles := [];
     stableVersions := [];
@@ -2518,7 +2525,7 @@ actor {
     mime : Text,
     initialContent : ?Blob
   ) : async Result<FileId, Error> {
-    
+
     // Create file
     switch (await createFile(name, mime, caller, initialContent)) {
       case (#ok(fileId)) {
@@ -2531,7 +2538,7 @@ actor {
                 // Set up autosave policy
                 let defaultPolicy = Autosave.getDefaultPolicy();
                 ignore setAutosavePolicy(fileId, defaultPolicy);
-                
+
                 #ok(fileId);
               };
               case (#err(error)) { #err(error) };
@@ -2756,12 +2763,12 @@ actor {
     fileId : FileId,
     patch : Patch
   ) : async Result<{ newVersion : Version; transformed : [EditOp] }, Error> {
-    
+
     // Check for duplicate operation
     if (await isDuplicateOperation(fileId, patch.clientOpId)) {
       return #err(#DuplicateOperation);
     };
-    
+
     // Get current chunks
     switch (await getAllChunks(fileId)) {
       case (#ok(chunks)) {
@@ -2771,7 +2778,7 @@ actor {
             // Apply patch to file content (simplified - in reality you'd apply the operations)
             // For now, we'll just update the file with the new chunks
             ignore await replaceFileContent(fileId, chunks, caller);
-            
+
             // Create event
             switch (await getCommit(fileId, version)) {
               case (#ok(commit)) {
@@ -2779,7 +2786,7 @@ actor {
               };
               case (#err(error)) { return #err(error) };
             };
-            
+
             #ok({
               newVersion = version;
               transformed = patch.ops; // In a real implementation, you'd transform the ops
@@ -2891,24 +2898,24 @@ actor {
         if (not state.policy.enabled) {
           return #err(#InvalidOperation);
         };
-        
+
         let now = Types.now();
         let timeSinceActivity = now - state.lastActivity;
         let timeSinceLastAutosave = now - state.lastAutosave;
-        
+
         // Check if autosave is needed
         if (not state.pendingChanges) {
           return #err(#InvalidOperation); // No changes to save
         };
-        
+
         if (timeSinceLastAutosave < state.policy.intervalNanos) {
           return #err(#InvalidOperation); // Too soon since last autosave
         };
-        
+
         if (timeSinceActivity < state.policy.idleNanos) {
           return #err(#InvalidOperation); // File not idle enough
         };
-        
+
         // Perform autosave
         switch (await saveFunction(fileId, caller)) {
           case (#ok(version)) {
@@ -2927,11 +2934,11 @@ actor {
   public shared(msg) func processAllAutosaves(
     user : Principal
   ) : async Result<{ processed : Nat; errors : [Text] }, Error> {
-    
+
     let filesToProcess = await getFilesNeedingAutosave();
     let results = Buffer.Buffer<Text>(0);
     var processedCount : Nat = 0;
-    
+
     for (fileId in filesToProcess.vals()) {
       switch (await process_autosave(fileId)) {
         case (#ok(_)) { processedCount += 1 };
@@ -2940,13 +2947,13 @@ actor {
         };
       };
     };
-    
+
     #ok({
       processed = processedCount;
       errors = Buffer.toArray(results);
     });
   };
-  
+
 
   // ===== SYSTEM FUNCTIONS =====
 
@@ -2956,7 +2963,7 @@ actor {
     for ((fileId, _) in presenceByFile.entries()) {
       ignore await cleanupStaleClients(fileId);
     };
-    
+
     // Process autosaves
     let filesNeedingAutosave = await getFilesNeedingAutosave();
     if (filesNeedingAutosave.size() > 0) {
@@ -2979,27 +2986,27 @@ actor {
     var totalVersions : Nat = 0;
     var totalEvents : Nat = 0;
     var activeClients : Nat = 0;
-    
+
     // Count files
     for ((_, _) in filesById.entries()) {
       totalFiles += 1;
     };
-    
+
     // Count versions
     for ((_, fileVersions) in commitsByFile.entries()) {
       totalVersions += fileVersions.size();
     };
-    
+
     // Count events
     for ((_, buffer) in eventsByFile.entries()) {
       totalEvents += buffer.events.size();
     };
-    
+
     // Count active clients
     for ((_, filePresence) in presenceByFile.entries()) {
       activeClients += filePresence.size();
     };
-    
+
     {
       totalFiles = totalFiles;
       totalVersions = totalVersions;
@@ -3014,14 +3021,14 @@ actor {
     if (not Principal.equal(caller, Principal.fromText("2vxsx-fae"))) {
       return #err(#AccessDenied);
     };
-    
+
     var filesCleaned : Nat = 0;
     var versionsCleaned : Nat = 0;
     var eventsCleaned : Nat = 0;
-    
+
     // Clean up deleted files
     filesCleaned := await cleanupDeletedFiles();
-    
+
     // Clean up old versions (keep only last 10 for each file)
     for ((fileId, _) in commitsByFile.entries()) {
       switch (await pruneVersions(fileId, 10)) {
@@ -3029,7 +3036,7 @@ actor {
         case (#err(_)) { /* Ignore errors */ };
       };
     };
-    
+
     // Clean up old events (keep only last 1000 per file)
     for ((fileId, buffer) in eventsByFile.entries()) {
       while (buffer.events.size() > 1000) {
@@ -3037,7 +3044,7 @@ actor {
         eventsCleaned += 1;
       };
     };
-    
+
     #ok({
       files = filesCleaned;
       versions = versionsCleaned;
