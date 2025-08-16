@@ -13,8 +13,8 @@
   backdrop-filter: blur(20px);
   border-radius: 24px;
   padding: 3rem;
-  max-width: 480px;
-  width: 100%;
+  width: fit-content;
+  max-width: 72rem;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -31,7 +31,7 @@
   margin-bottom: 1.5rem;
 }
 
-.logo {
+.logo-signup {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -80,6 +80,30 @@
   line-height: 1.5;
 }
 
+.auth-contents {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.auth-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3rem;
+}
+
+.auth-image {
+  background-color: #263238;
+  border-radius: 24px;
+  padding: 2rem;
+
+  & > svg {
+    object-fit: contain;
+    margin: 0 auto;
+  }
+}
+
 .auth-options {
   display: flex;
   flex-direction: column;
@@ -91,7 +115,7 @@
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 1.25rem 1.5rem;
+  padding: 2.5rem 1.5rem;
   border: 2px solid #e3f2fd;
   border-radius: 16px;
   background: white;
@@ -100,7 +124,7 @@
   position: relative;
   overflow: hidden;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 1.25rem;
   color: #263238;
 }
 
@@ -162,14 +186,14 @@
 
 .auth-content h3 {
   margin: 0 0 0.25rem 0;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 600;
   color: #263238;
 }
 
 .auth-content p {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 1rem;
   color: #546e7a;
   line-height: 1.4;
 }
@@ -240,7 +264,7 @@
     font-size: 1.875rem;
   }
 
-  .logo {
+  .logo-signup {
     padding: 0.5rem 1.25rem;
   }
 
@@ -275,7 +299,7 @@
     font-size: 1.5rem;
   }
 
-  .logo {
+  .logo-signup {
     padding: 0.5rem 1rem;
   }
 
