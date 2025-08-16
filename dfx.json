@@ -2,21 +2,36 @@
   "canisters": {
     "authentication": {
       "type": "motoko",
-      "main": "src/authentication/main.mo"
+      "main": "src/authentication/main.mo",
+      "dependencies": ["internet_identity"]
     },
     "table_management": {
       "type": "motoko",
       "main": "src/table_management/main.mo",
-      "dependencies": ["authentication"]
+      "dependencies": ["authentication", "internet_identity"]
     },
     "storage": {
       "type": "motoko",
-      "main": "src/storage/main.mo"
+      "main": "src/storage/main.mo",
+      "dependencies": ["internet_identity"]
     },
+    "internet_identity": {
+      "type": "custom",
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz",
+      "remote": {
+        "id": {
+          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+        }
+      },
+      "frontend": {}
+    },
+
     "frontend": {
       "dependencies": [
         "authentication",
-        "table_management"
+        "table_management",
+        "storage"
       ],
       "source": ["frontend/dist"],
       "type": "assets",
