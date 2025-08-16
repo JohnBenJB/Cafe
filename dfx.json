@@ -1,18 +1,41 @@
 {
   "canisters": {
-    "Cafe_backend": {
-      "main": "src/Cafe_backend/main.mo",
-      "type": "motoko"
+    "authentication": {
+      "type": "motoko",
+      "main": "src/authentication/main.mo",
+      "dependencies": ["internet_identity"]
     },
-    "Cafe_frontend": {
+    "table_management": {
+      "type": "motoko",
+      "main": "src/table_management/main.mo",
+      "dependencies": ["authentication", "internet_identity"]
+    },
+    "storage": {
+      "type": "motoko",
+      "main": "src/storage/main.mo",
+      "dependencies": ["internet_identity"]
+    },
+    "internet_identity": {
+      "type": "custom",
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz",
+      "remote": {
+        "id": {
+          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+        }
+      },
+      "frontend": {}
+    },
+
+    "frontend": {
       "dependencies": [
-        "Cafe_backend"
+        "authentication",
+        "table_management",
+        "storage"
       ],
-      "source": [
-        "src/Cafe_frontend/dist"
-      ],
+      "source": ["frontend/dist"],
       "type": "assets",
-      "workspace": "Cafe_frontend"
+      "workspace": "frontend"
     }
   },
   "defaults": {

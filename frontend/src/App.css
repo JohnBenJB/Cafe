@@ -59,7 +59,7 @@ pre {
   padding: 12px 24px;
   transition: all 0.3s ease;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-  max-width: 90vw;
+  min-width: 90vw;
   width: auto;
 }
 
@@ -74,7 +74,6 @@ pre {
   align-items: center;
   justify-content: space-between;
   gap: 32px;
-  min-width: 1200px;
 }
 
 .logo {
@@ -642,7 +641,19 @@ pre {
 }
 
 /* How It Works Section */
+.how-it-works-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 48px;
+  margin-top: 80px;
 
+  & .how-it-works-image > img {
+    object-fit: cover;
+    width: 100%;
+    border-radius: 16px;
+  }
+}
 .steps-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -913,7 +924,7 @@ pre {
 .footer-content {
   display: grid;
   grid-template-columns: 1fr 2fr;
-  gap: 64px;
+  gap: 10rem 160px;
   margin-bottom: 48px;
 }
 
@@ -928,9 +939,9 @@ pre {
 }
 
 .footer-links {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  display: flex;
   gap: 32px;
+  justify-content: space-between;
 }
 
 .footer-title {
@@ -946,6 +957,7 @@ pre {
   text-decoration: none;
   margin-bottom: 8px;
   transition: color 0.3s ease;
+  width: fit-content;
 }
 
 .footer-link:hover {
