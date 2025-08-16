@@ -108,11 +108,6 @@ const Navbar = () => {
             ))}
           </div>
         </div>
-
-        {/* <div className="nav-actions">
-          <button className="btn-secondary">Sign In</button>
-          <button className="btn-primary">Get Started</button>
-        </div> */}
       </div>
     </nav>
   );

@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import CollaborationTable from "./CollaborationTable";
 
 const Hero = () => {
   const heroRef = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -253,7 +255,12 @@ const Hero = () => {
           </h1>
 
           <div className="hero-actions">
-            <button className="btn-primary-large">Get Started</button>
+            <button
+              className="btn-primary-large"
+              onClick={() => navigate("/signup")}
+            >
+              Get Started
+            </button>
             <button className="btn-secondary-large">
               <span className="play-icon">▶</span>
               Watch Video
