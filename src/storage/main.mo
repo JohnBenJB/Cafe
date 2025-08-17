@@ -823,15 +823,20 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   public shared({ caller }) func listFiles(
     tableId: Nat
   ) : async Result<[FileId], Error> {
-    switch (await hasAccess(fileId, caller)) {
+    switch (await TableManagement.get_table_collaborators(tableId)) {
       case (#err(error)) {
-        return #err(error);
+        return #err(#NotFound);
       };
-      case (#ok(isAllowed)) {
-        if (isAllowed == false) {
+      case (#ok(collaborators)) {
+        var tableCollaborators : [Principal] = [];
+        for (collaborator in collaborators.vals()) {
+          tableCollaborators := Array.append(tableCollaborators,
+          [collaborator.principal]);
+        };
+        if (not arrayContains<Principal>(tableCollaborators, caller, Principal.equal)) {
           return #err(#AccessDenied);
-        }
-      }
+        };
+      };
     };
     switch(filesByTableId.get(tableId)) {
       case null #err(#NotFound);
@@ -941,7 +946,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     mime : ?Text,
   ) : async Result<(), Error> {
     let user = msg.caller;
-    switch (await hasAccess(fileId, caller)) {
+    switch (await hasAccess(fileId, user)) {
       case (#err(error)) {
         return #err(error);
       };
@@ -1329,7 +1334,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get events since a specific sequence number
-  public func getEvents(
+  public shared ({ caller }) func getEvents(
     fileId : FileId,
     since : Seq,
     maxEvents : Nat
@@ -1713,11 +1718,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   public shared ({ caller }) func isClientActive(fileId : FileId, clientId : ClientId) : async Bool {
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
-        return #err(error);
+        return false;
       };
       case (#ok(isAllowed)) {
         if (isAllowed == false) {
-          return #err(#AccessDenied);
+          return false;
         }
       }
     };
@@ -1787,7 +1792,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Clean up all data for a file
-  public func cleanupFileData(fileId : FileId) : async Result<{ events : Nat; presence : Nat; subscriptions : Nat; operations : Nat }, Error> {
+  public func cleanupFileData(fileId : FileId) : async Result<{ events : Nat; presence : Nat; operations : Nat }, Error> {
     let eventCount = getEventCount(fileId);
     let presenceCount = getActiveClientCount(fileId);
 
@@ -2355,11 +2360,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   public shared ({ caller }) func getVersionCount(fileId : FileId) : async Nat {
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
-        return #err(error);
+        return 0;
       };
       case (#ok(isAllowed)) {
         if (isAllowed == false) {
-          return #err(#AccessDenied);
+          return 0;
         }
       }
     };
@@ -2373,11 +2378,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   public shared ({ caller }) func getVersionStorageUsed(fileId : FileId) : async Nat {
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
-        return #err(error);
+        return 0;
       };
       case (#ok(isAllowed)) {
         if (isAllowed == false) {
-          return #err(#AccessDenied);
+          return 0;
         }
       }
     };
@@ -2397,11 +2402,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   public shared ({ caller }) func versionExists(fileId : FileId, version : Version) : async Bool {
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
-        return #err(error);
+        return false;
       };
       case (#ok(isAllowed)) {
         if (isAllowed == false) {
-          return #err(#AccessDenied);
+          return false;
         }
       }
     };
@@ -2539,6 +2544,21 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     mime : Text,
     initialContent : ?Blob
   ) : async Result<FileId, Error> {
+    switch (await TableManagement.get_table_collaborators(tableId)) {
+      case (#err(error)) {
+        return #err(#NotFound);
+      };
+      case (#ok(collaborators)) {
+        var tableCollaborators : [Principal] = [];
+        for (collaborator in collaborators.vals()) {
+          tableCollaborators := Array.append(tableCollaborators,
+          [collaborator.principal]);
+        };
+        if (not arrayContains<Principal>(tableCollaborators, caller, Principal.equal)) {
+          return #err(#AccessDenied);
+        };
+      };
+    };
 
     // Create file
     switch (createFile(name, tableId, mime, caller, initialContent)) {
