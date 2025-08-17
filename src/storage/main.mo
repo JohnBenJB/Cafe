@@ -120,7 +120,7 @@ actor {
   func toFileMetaView(meta : FileMeta) : FileMetaView {
     {
       id = meta.id;
-      tableId = meta.tableId; 
+      tableId = meta.tableId;
       name = meta.name;
       mime = meta.mime;
       size = meta.size;
@@ -775,7 +775,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
         filesByTableId.put(tableId, updatedArray);
       }
     };
-    
+
     // Update owner's file name index
     switch (fileNamesByOwner.get(owner)) {
       case (?existingFiles) {
@@ -1287,19 +1287,25 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   public func hasAccess(fileId : FileId, user : Principal) : async Result<Bool, Error> {
     switch (filesById.get(fileId)) {
       case (?file) {
-        if (file.isDeleted) { 
-          return #err(#NotFound) 
+        if (file.isDeleted) {
+          return #err(#NotFound)
         } else {
           let assocTableId = file.meta.tableId;
-          let usersWithAccess = TableManagement.get_table_collaborators(assocTableId);
-          let usersWithAccessPrincipals : [Principal] = [];
-          for (user in usersWithAccess.vals()) {
-            ignore Array.append(usersWithAccessPrincipals, [user.principal]);
-          };
-          if (not arrayContains<Principal>(usersWithAccessPrincipals, user, Principal.equal)) {
-              return #ok(false);
-          } else {
-            return #ok(true);
+          switch (await TableManagement.get_table_collaborators(assocTableId)) {
+            case (#err(error)) {
+              return #err(#NotFound);
+            };
+            case (#ok(usersWithAccess)) {
+              let usersWithAccessPrincipals : [Principal] = [];
+              for (user in usersWithAccess.vals()) {
+                ignore Array.append(usersWithAccessPrincipals, [user.principal]);
+              };
+              if (not arrayContains<Principal>(usersWithAccessPrincipals, user, Principal.equal)) {
+                return #ok(false);
+              } else {
+                return #ok(true);
+              };
+            }
           };
         };
       };
