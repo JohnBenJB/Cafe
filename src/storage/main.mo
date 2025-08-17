@@ -820,34 +820,25 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
     // List files for a user (paginated)
-  public shared(msg) func listFiles(
-    offset : Nat,
-    limit : Nat
-  ) : async Result<Paginated<FileMetaView>, Error> {
-    let caller = msg.caller;
-    let userFiles = Buffer.Buffer<FileMetaView>(0);
-    var total : Nat = 0;
-
-    // Iterate through all files
-    for ((fileId, file) in filesById.entries()) {
-      if (not file.isDeleted) {
-        // Check if user has access
-        if (Types.canView(caller, file.access)) {
-          total += 1;
-          if (userFiles.size() < limit and total > offset) {
-            userFiles.add(toFileMetaView(file.meta));
-          };
-        };
+  public shared({ caller }) func listFiles(
+    tableId: Nat
+  ) : async Result<[FileId], Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
+    switch(filesByTableId.get(tableId)) {
+      case null #err(#NotFound);
+      case (?files) {
+        return #ok(files);
       };
     };
-
-    let nextOffset = if (offset + limit < total) { ?(offset + limit) } else { null };
-
-    #ok({
-      items = Buffer.toArray(userFiles);
-      next = nextOffset;
-      total = total;
-    });
   };
 
   // Get a specific chunk of file content
@@ -877,7 +868,17 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get all chunks for a file
-  public func getAllChunks(fileId : FileId) : async Result<[ContentChunk], Error> {
+  public shared({ caller })func getAllChunks(fileId : FileId) : async Result<[ContentChunk], Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
@@ -896,7 +897,17 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get complete file content as blob
-  public func getFileContent(fileId : FileId) : async Result<Blob, Error> {
+  public shared({ caller })func getFileContent(fileId : FileId) : async Result<Blob, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (await getAllChunks(fileId)) {
       case (#ok(chunks)) {
         if (chunks.size() == 0) {
@@ -930,6 +941,16 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     mime : ?Text,
   ) : async Result<(), Error> {
     let user = msg.caller;
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
@@ -996,7 +1017,6 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     newChunks : [ContentChunk],
     user : Principal
   ) : Result<Version, Error> {
-
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
@@ -1180,107 +1200,6 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // ===== ACCESS CONTROL =====
 
-  // Share file with another user
-  public shared(msg) func shareFile(
-    fileId : FileId,
-    targetUser : Principal,
-    role : Role,
-  ) : async Result<(), Error> {
-    let user = msg.caller;
-    switch (filesById.get(fileId)) {
-      case (?file) {
-        if (file.isDeleted) {
-          return #err(#NotFound);
-        };
-
-        if (not Types.isOwner(user, file.access)) {
-          return #err(#AccessDenied);
-        };
-
-        // Check if already shared
-        for ((sharedUser, existingRole) in file.access.sharedWith.vals()) {
-          if (Principal.equal(sharedUser, targetUser)) {
-            // Update existing role
-            let updatedShared = Array.map<(Principal, Role), (Principal, Role)>(
-              file.access.sharedWith,
-              func(pair : (Principal, Role)) : (Principal, Role) {
-                if (Principal.equal(pair.0, targetUser)) {
-                  (targetUser, role);
-                } else {
-                  pair;
-                };
-              }
-            );
-            file.access.sharedWith := updatedShared;
-            return #ok(());
-          };
-        };
-
-        // Add new share
-        let newShared = Array.append(file.access.sharedWith, [(targetUser, role)]);
-        file.access.sharedWith := newShared;
-
-        #ok(());
-      };
-      case null { #err(#NotFound) };
-    };
-  };
-
-  // Revoke access for a user
-  public shared(msg) func revokeAccess(
-    fileId : FileId,
-    targetUser : Principal,
-  ) : async Result<(), Error> {
-    let user = msg.caller;
-    switch (filesById.get(fileId)) {
-      case (?file) {
-        if (file.isDeleted) {
-          return #err(#NotFound);
-        };
-
-        if (not Types.isOwner(user, file.access)) {
-          return #err(#AccessDenied);
-        };
-
-        // Remove user from shared list
-        let filteredShared = Array.filter<(Principal, Role)>(
-          file.access.sharedWith,
-          func(pair : (Principal, Role)) : Bool {
-            not Principal.equal(pair.0, targetUser);
-          }
-        );
-        file.access.sharedWith := filteredShared;
-
-        #ok(());
-      };
-      case null { #err(#NotFound) };
-    };
-  };
-
-  // Set public access
-  public shared(msg) func setPublicAccess(
-    fileId : FileId,
-    isPublic : Bool,
-  ) : async Result<(), Error> {
-    let user = msg.caller;
-    switch (filesById.get(fileId)) {
-      case (?file) {
-        if (file.isDeleted) {
-          return #err(#NotFound);
-        };
-
-        if (not Types.isOwner(user, file.access)) {
-          return #err(#AccessDenied);
-        };
-
-        file.access.isPublic := isPublic;
-
-        #ok(());
-      };
-      case null { #err(#NotFound) };
-    };
-  };
-
   // ===== UTILITY FUNCTIONS =====
 
   // Check if file exists and user has access
@@ -1415,7 +1334,16 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     since : Seq,
     maxEvents : Nat
   ) : async Result<{ events : [Event]; nextSince : Seq }, Error> {
-
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (eventsByFile.get(fileId)) {
       case (?buffer) {
         let events = Buffer.Buffer<Event>(0);
@@ -1609,86 +1537,6 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // ===== SUBSCRIPTION MANAGEMENT =====
 
-  // Subscribe to file events
-  public func subscribe(
-    fileId : FileId,
-    clientId : ClientId,
-    user : Principal
-  ) : async Result<Subscription, Error> {
-
-    let subscription : Subscription = {
-      clientId = clientId;
-      since = nextSeq;
-      lastPolled = Types.now();
-      user = user;
-    };
-
-    // Store subscription
-    switch (subscriptionsByFile.get(fileId)) {
-      case (?fileSubscriptions) {
-        fileSubscriptions.put(clientId, subscription);
-      };
-      case null {
-        let newFileSubscriptions = HashMap.HashMap<ClientId, Subscription>(0, Text.equal, Text.hash);
-        newFileSubscriptions.put(clientId, subscription);
-        subscriptionsByFile.put(fileId, newFileSubscriptions);
-      };
-    };
-
-    #ok(subscription);
-  };
-
-  // Unsubscribe from file events
-  public func unsubscribe(fileId : FileId, clientId : ClientId) : async Result<(), Error> {
-    switch (subscriptionsByFile.get(fileId)) {
-      case (?fileSubscriptions) {
-        fileSubscriptions.delete(clientId);
-        #ok(());
-      };
-      case null { #ok(()) };
-    };
-  };
-
-  // Update subscription last polled time
-  public func updateSubscriptionPolled(
-    fileId : FileId,
-    clientId : ClientId,
-    since : Seq
-  ) : async Result<(), Error> {
-
-    switch (subscriptionsByFile.get(fileId)) {
-      case (?fileSubscriptions) {
-        switch (fileSubscriptions.get(clientId)) {
-          case (?subscription) {
-            let updatedSubscription : Subscription = {
-              clientId = clientId;
-              since = since;
-              lastPolled = Types.now();
-              user = subscription.user;
-            };
-            fileSubscriptions.put(clientId, updatedSubscription);
-            #ok(());
-          };
-          case null { #err(#NotFound) };
-        };
-      };
-      case null { #err(#NotFound) };
-    };
-  };
-
-  // Get all subscriptions for a file
-  func getSubscriptions(fileId : FileId) : Result<[Subscription], Error> {
-    switch (subscriptionsByFile.get(fileId)) {
-      case (?fileSubscriptions) {
-        let subscriptions = Buffer.Buffer<Subscription>(0);
-        for ((_, subscription) in fileSubscriptions.entries()) {
-          subscriptions.add(subscription);
-        };
-        #ok(Buffer.toArray(subscriptions));
-      };
-      case null { #ok([]) };
-    };
-  };
 
   // ===== PATCH PROCESSING =====
 
@@ -1860,16 +1708,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     };
   };
 
-  // Get subscription count for a file
-  func getSubscriptionCount(fileId : FileId) : Nat {
-    switch (subscriptionsByFile.get(fileId)) {
-      case (?fileSubscriptions) { fileSubscriptions.size() };
-      case null { 0 };
-    };
-  };
 
   // Check if client is active
-  public func isClientActive(fileId : FileId, clientId : ClientId) : async Bool {
+  public shared ({ caller }) func isClientActive(fileId : FileId, clientId : ClientId) : async Bool {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (presenceByFile.get(fileId)) {
       case (?filePresence) {
         switch (filePresence.get(clientId)) {
@@ -1885,7 +1736,17 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get client cursor
-  public func getClientCursor(fileId : FileId, clientId : ClientId) : async Result<Cursor, Error> {
+  public shared({ caller }) func getClientCursor(fileId : FileId, clientId : ClientId) : async Result<Cursor, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (presenceByFile.get(fileId)) {
       case (?filePresence) {
         switch (filePresence.get(clientId)) {
@@ -1929,7 +1790,6 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   public func cleanupFileData(fileId : FileId) : async Result<{ events : Nat; presence : Nat; subscriptions : Nat; operations : Nat }, Error> {
     let eventCount = getEventCount(fileId);
     let presenceCount = getActiveClientCount(fileId);
-    let subscriptionCount = getSubscriptionCount(fileId);
 
     let operationCount = switch (dedupeOpIdsByFile.get(fileId)) {
       case (?fileOpIds) { fileOpIds.size() };
@@ -1944,7 +1804,6 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     #ok({
       events = eventCount;
       presence = presenceCount;
-      subscriptions = subscriptionCount;
       operations = operationCount;
     });
   };
@@ -2208,12 +2067,21 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // List versions for a file (paginated)
-  public func listVersions(
+  public shared ({ caller }) func listVersions(
     fileId : FileId,
     offset : Nat,
     limit : Nat
   ) : async Result<Paginated<Commit>, Error> {
-
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
         let commits = Buffer.Buffer<Commit>(0);
@@ -2245,7 +2113,17 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get version history (linear chain)
-  public func getVersionHistory(fileId : FileId, fromVersion : Version) : async Result<[Commit], Error> {
+  public shared ({ caller }) func getVersionHistory(fileId : FileId, fromVersion : Version) : async Result<[Commit], Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
         let history = Buffer.Buffer<Commit>(0);
@@ -2270,12 +2148,21 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   // ===== VERSION COMPARISON =====
 
   // Get differences between two versions (for text files)
-  public func getVersionDiff(
+  public shared ({ caller }) func getVersionDiff(
     fileId : FileId,
     fromVersion : Version,
     toVersion : Version
   ) : async Result<[EditOp], Error> {
-
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     // Get commits for both versions
     let fromCommit = switch (getCommit(fileId, fromVersion)) {
       case (#ok(commit)) { commit };
@@ -2293,12 +2180,21 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Check if one version is ancestor of another
-  public func isAncestor(
+  public shared ({ caller }) func isAncestor(
     fileId : FileId,
     ancestor : Version,
     descendant : Version
   ) : async Result<Bool, Error> {
-
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     if (ancestor == descendant) { return #ok(true) };
 
     switch (commitsByFile.get(fileId)) {
@@ -2431,7 +2327,17 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Delete all versions for a file
-  public func deleteAllVersions(fileId : FileId) : async Result<Nat, Error> {
+  public shared ({ caller }) func deleteAllVersions(fileId : FileId) : async Result<Nat, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
         let count = fileVersions.size();
@@ -2446,7 +2352,17 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   // ===== UTILITY FUNCTIONS =====
 
   // Get version count for a file
-  public func getVersionCount(fileId : FileId) : async Nat {
+  public shared ({ caller }) func getVersionCount(fileId : FileId) : async Nat {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) { fileVersions.size() };
       case null { 0 };
@@ -2454,7 +2370,17 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get total storage used by versions
-  public func getVersionStorageUsed(fileId : FileId) : async Nat {
+  public shared ({ caller }) func getVersionStorageUsed(fileId : FileId) : async Nat {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) {
         var total : Nat = 0;
@@ -2468,7 +2394,17 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Check if version exists
-  public func versionExists(fileId : FileId, version : Version) : async Bool {
+  public shared ({ caller }) func versionExists(fileId : FileId, version : Version) : async Bool {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (commitsByFile.get(fileId)) {
       case (?fileVersions) { Option.isSome(fileVersions.get(version)) };
       case null { false };
@@ -2476,7 +2412,17 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get latest commit message
-  public func getLatestCommitMessage(fileId : FileId) : async Result<Text, Error> {
+  public shared({ caller }) func getLatestCommitMessage(fileId : FileId) : async Result<Text, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (getHeadVersion(fileId)) {
       case (#ok(head)) {
         switch (getCommit(fileId, head)) {
@@ -2494,7 +2440,17 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get commit author
-  public func getCommitAuthor(fileId : FileId, version : Version) : async Result<Principal, Error> {
+  public shared ({ caller }) func getCommitAuthor(fileId : FileId, version : Version) : async Result<Principal, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (getCommit(fileId, version)) {
       case (#ok(commit)) { #ok(commit.author) };
       case (#err(error)) { #err(error) };
@@ -2611,6 +2567,16 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Delete a file
   public shared ({ caller }) func delete_file(fileId : FileId) : async Result<(), Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (deleteFile(fileId, caller)) {
       case (#ok(_)) {
         // Create delete event
@@ -2623,6 +2589,16 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Restore a deleted file
   public shared ({ caller }) func restore_file(fileId : FileId) : async Result<(), Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (restoreFile(fileId, caller)) {
       case (#ok(_)) {
         // Create restore event
@@ -2642,6 +2618,16 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     chunkIndex : Nat,
     data : Blob
   ) : async Result<Version, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (updateChunk(fileId, chunkIndex, data, caller)) {
       case (#ok(version)) {
         // Record activity for autosave
@@ -2657,6 +2643,16 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     fileId : FileId,
     newChunks : [ContentChunk]
   ) : async Result<Version, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (replaceFileContent(fileId, newChunks, caller)) {
       case (#ok(version)) {
         // Record activity for autosave
@@ -2672,23 +2668,53 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   // ===== VERSIONING =====
 
   // Get commit information
-  public func get_commit(
+  public shared({ caller }) func get_commit(
     fileId : FileId,
     version : Version
   ) : async Result<Commit, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     getCommit(fileId, version);
   };
 
   // Get chunks for a specific version
-  public func get_version_chunks(
+  public shared({ caller }) func get_version_chunks(
     fileId : FileId,
     version : Version
   ) : async Result<[ContentChunk], Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     getVersionChunks(fileId, version);
   };
 
   // Get current head version
-  public func get_head_version(fileId : FileId) : async Result<Version, Error> {
+  public shared ({ caller }) func get_head_version(fileId : FileId) : async Result<Version, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     getHeadVersion(fileId);
   };
 
@@ -2697,6 +2723,16 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     fileId : FileId,
     message : ?Text
   ) : async Result<Version, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (await getAllChunks(fileId)) {
       case (#ok(chunks)) {
         switch (createSnapshot(fileId, caller, message, chunks)) {
@@ -2717,6 +2753,16 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     fileId : FileId,
     targetVersion : Version
   ) : async Result<Version, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (getVersionChunks(fileId, targetVersion)) {
       case (#ok(chunks)) {
         switch (rollbackToVersion(fileId, targetVersion, caller, chunks)) {
