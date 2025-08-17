@@ -20,6 +20,7 @@ import Types "./types";
 import Versions "./versions";
 import Realtime "./realtime";
 import Autosave "./autosave";
+import TableManagement "canister:table_management";
 
   // ===== STORAGE CANISTER MAIN MODULE =====
   // Integrates all storage modules and provides public interface
@@ -83,6 +84,7 @@ actor {
   // Immutable view of FileMeta for shared returns
   public type FileMetaView = {
     id : FileId;
+    tableId : Nat;
     name : Text;
     mime : Text;
     size : Nat;
@@ -118,6 +120,7 @@ actor {
   func toFileMetaView(meta : FileMeta) : FileMetaView {
     {
       id = meta.id;
+      tableId = meta.tableId; 
       name = meta.name;
       mime = meta.mime;
       size = meta.size;
@@ -173,10 +176,19 @@ actor {
     }
   };
 
+   // Helper function to check if array contains element
+  func arrayContains<T>(arr : [T], elem : T, equal : (T, T) -> Bool) : Bool {
+    switch (Array.find<T>(arr, func(x) = equal(x, elem))) {
+      case (?_) true;
+      case null false;
+    }
+  };
+
   // ===== UPGRADE/DOWNGRADE =====
 
   // Stable arrays for upgrade serialization
   stable var stableFiles : [(FileId, StableFileStorage)] = [];
+  stable var stableFilesByTableId : [(Nat, [FileId])] = [];
   stable var stableVersions : [(FileId, [(Version, StableVersionStorage)])] = [];
   stable var stableEvents : [(FileId, [Event])] = [];
   stable var stablePresence : [(FileId, [(ClientId, Realtime.ClientPresence)])] = [];
@@ -602,6 +614,13 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     };
     stableVersions := Buffer.toArray(versionEntries);
 
+    // Serialize storage for files by tableId
+    let filesByTableIdEntries = Buffer.Buffer<(Nat, [FileId])>(0);
+    for ((tableId, filesByTable) in filesByTableId.entries()) {
+      filesByTableIdEntries.add((tableId, filesByTable));
+    };
+    stableFilesByTableId := Buffer.toArray(filesByTableIdEntries);
+
     // Serialize events
     let eventEntries = Buffer.Buffer<(FileId, [Event])>(0);
     for ((fileId, buffer) in eventsByFile.entries()) {
@@ -641,6 +660,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // File storage maps
   var filesById = HashMap.HashMap<FileId, FileStorage>(0, Nat32.equal, func(x : Nat32) : Nat32 { x });
+  var filesByTableId = HashMap.HashMap<Nat, [FileId]>(0, Nat.equal, Hash.hash);
   var fileNamesByOwner = HashMap.HashMap<Principal, HashMap.HashMap<Text, FileId>>(0, Principal.equal, Principal.hash);
 
   // ===== FILE CREATION =====
@@ -648,6 +668,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   // Create a new file with initial content
   func createFile(
     name : Text,
+    tableId: Nat,
     mime : Text,
     owner : Principal,
     initialContent : ?Blob
@@ -716,6 +737,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     let now = Types.now();
     let meta : FileMeta = {
       id = fileId;
+      tableId = tableId;
       var name = name;
       var mime = mime;
       var size = totalSize;
@@ -744,7 +766,16 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     };
 
     filesById.put(fileId, fileStorage);
-
+    switch (filesByTableId.get(tableId)) {
+      case null {
+        return #err(#NotFound);
+      };
+      case (?oldArray) {
+        let updatedArray = Array.append(oldArray, [fileId]);
+        filesByTableId.put(tableId, updatedArray);
+      }
+    };
+    
     // Update owner's file name index
     switch (fileNamesByOwner.get(owner)) {
       case (?existingFiles) {
@@ -820,7 +851,17 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get a specific chunk of file content
-  public func getChunk(fileId : FileId, chunkIndex : Nat) : async Result<ContentChunk, Error> {
+  public shared({ caller })func getChunk(fileId : FileId, chunkIndex : Nat) : async Result<ContentChunk, Error> {
+    switch (await hasAccess(fileId, caller)) {
+      case (#err(error)) {
+        return #err(error);
+      };
+      case (#ok(isAllowed)) {
+        if (isAllowed == false) {
+          return #err(#AccessDenied);
+        }
+      }
+    };
     switch (filesById.get(fileId)) {
       case (?file) {
         if (file.isDeleted) {
@@ -1243,13 +1284,26 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   // ===== UTILITY FUNCTIONS =====
 
   // Check if file exists and user has access
-  public func hasAccess(fileId : FileId, user : Principal, requiredRole : Role) : async Bool {
+  public func hasAccess(fileId : FileId, user : Principal) : async Result<Bool, Error> {
     switch (filesById.get(fileId)) {
       case (?file) {
-        if (file.isDeleted) { return false };
-        Types.hasRole(user, requiredRole, file.access);
+        if (file.isDeleted) { 
+          return #err(#NotFound) 
+        } else {
+          let assocTableId = file.meta.tableId;
+          let usersWithAccess = TableManagement.get_table_collaborators(assocTableId);
+          let usersWithAccessPrincipals : [Principal] = [];
+          for (user in usersWithAccess.vals()) {
+            ignore Array.append(usersWithAccessPrincipals, [user.principal]);
+          };
+          if (not arrayContains<Principal>(usersWithAccessPrincipals, user, Principal.equal)) {
+              return #ok(false);
+          } else {
+            return #ok(true);
+          };
+        };
       };
-      case null { false };
+      case null { #err(#NotFound) };
     };
   };
 
@@ -2507,6 +2561,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     // Clear stable arrays
     stableFiles := [];
     stableVersions := [];
+    stableFilesByTableId := [];
     stableEvents := [];
     stablePresence := [];
     stableSubscriptions := [];
@@ -2518,12 +2573,13 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   // Create a new file
   public shared ({ caller }) func create_file(
     name : Text,
+    tableId : Nat,
     mime : Text,
     initialContent : ?Blob
   ) : async Result<FileId, Error> {
 
     // Create file
-    switch (createFile(name, mime, caller, initialContent)) {
+    switch (createFile(name, tableId, mime, caller, initialContent)) {
       case (#ok(fileId)) {
         // Get chunks for versioning
         switch (await getAllChunks(fileId)) {

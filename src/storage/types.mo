@@ -45,6 +45,7 @@ module {
   // File metadata
   public type FileMeta = {
     id : FileId;
+    tableId : Nat;
     var name : Text;
     var mime : Text;
     var size : Nat;            // Total file size in bytes
