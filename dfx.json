@@ -28,11 +28,7 @@
     },
 
     "frontend": {
-      "dependencies": [
-        "authentication",
-        "table_management",
-        "storage"
-      ],
+      "dependencies": ["authentication", "table_management", "storage"],
       "source": ["frontend/dist"],
       "type": "assets",
       "workspace": "frontend"

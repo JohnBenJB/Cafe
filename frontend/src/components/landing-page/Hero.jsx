@@ -257,7 +257,7 @@ const Hero = () => {
           <div className="hero-actions">
             <button
               className="btn-primary-large"
-              onClick={() => navigate("/signup")}
+              onClick={() => navigate("/auth")}
             >
               Get Started
             </button>

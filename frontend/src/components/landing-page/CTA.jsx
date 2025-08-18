@@ -18,7 +18,7 @@ const CTA = () => {
           <div className="cta-actions">
             <button
               className="btn-primary-large"
-              onClick={() => navigate("/signup")}
+              onClick={() => navigate("/auth")}
             >
               Get Started Free
             </button>
