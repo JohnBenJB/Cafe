@@ -31,7 +31,7 @@ const ProfileSetup = () => {
         slack: user.slack || "",
       });
     }
-  }, [navigate]);
+  }, [isAuthenticated, navigate, user]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -55,20 +55,6 @@ const ProfileSetup = () => {
       const result = await updateProfile(formData);
 
       if (result.success) {
-        // Save profile to localStorage for Dashboard access
-        const profileToSave = {
-          username: formData.username,
-          email: formData.email,
-          github: formData.github,
-          slack: formData.slack,
-          lastLogin: Date.now(),
-          hasCompletedSetup: true,
-        };
-        localStorage.setItem(
-          "cafe_user_profile",
-          JSON.stringify(profileToSave)
-        );
-
         await internetIdentityService.markProfileAsCompleted();
         navigate("/dashboard");
       } else {
@@ -83,19 +69,13 @@ const ProfileSetup = () => {
   };
 
   const handleSkip = async () => {
-    // Save a basic profile with default values
-    const basicProfile = {
-      username: "User",
-      email: "user@example.com",
-      github: "",
-      slack: "",
-      lastLogin: Date.now(),
-      hasCompletedSetup: true,
-    };
-    localStorage.setItem("cafe_user_profile", JSON.stringify(basicProfile));
-
-    await internetIdentityService.markProfileAsCompleted();
-    navigate("/dashboard");
+    try {
+      // Do not write placeholder user data; simply mark completed and proceed
+      await internetIdentityService.markProfileAsCompleted();
+      navigate("/dashboard");
+    } catch {
+      navigate("/dashboard");
+    }
   };
 
   return (

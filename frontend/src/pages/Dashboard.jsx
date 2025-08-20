@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-// import { backendIntegrationService } from "../services/backendIntegration";
+import { tableManagementService } from "../services/tableManagement";
+import { authenticationService } from "../services/authentication";
+import internetIdentityService from "../services/internetIdentity";
+import TableInvitations from "../components/workspace/TableInvitations";
+import TableDetails from "../components/workspace/TableDetails";
 import styles from "./Dashboard.module.css";
 import cafeLogo from "/cafe.png";
 
@@ -13,56 +17,24 @@ const Dashboard = () => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    image: null,
     members: [],
-    githubRepo: "",
   });
   const [memberSearch, setMemberSearch] = useState("");
-
-  const [recentTables] = useState([
-    {
-      id: 1,
-      title: "Seeker",
-      description:
-        "Seeker is a next-gen Web3 search engine that helps developers discover and integrate blockchain solutions.",
-      lastUpdated: "4 days ago",
-    },
-    {
-      id: 2,
-      title: "Compass",
-      description:
-        "Compass is a navigation tool for decentralized applications and blockchain networks.",
-      lastUpdated: "1 week ago",
-    },
-    {
-      id: 3,
-      title: "Kongswap",
-      description:
-        "Kongswap is a decentralized exchange platform for token trading and liquidity provision.",
-      lastUpdated: "2 weeks ago",
-    },
-    {
-      id: 4,
-      title: "Dappstore",
-      description:
-        "Dappstore is a curated marketplace for decentralized applications and blockchain tools.",
-      lastUpdated: "3 weeks ago",
-    },
-    {
-      id: 5,
-      title: "Café",
-      description:
-        "Café is a collaborative workspace platform for teams to build and manage projects together.",
-      lastUpdated: "1 month ago",
-    },
-    {
-      id: 6,
-      title: "Blockchain Hub",
-      description:
-        "Blockchain Hub is a comprehensive platform for blockchain education and development resources.",
-      lastUpdated: "1 month ago",
-    },
-  ]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [recentTables, setRecentTables] = useState([]);
+  const [isLoadingTables, setIsLoadingTables] = useState(true);
+  const [allUsers, setAllUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [selectedTable, setSelectedTable] = useState(null);
+  const [showInvitations, setShowInvitations] = useState(false);
+  const [testMode, setTestMode] = useState(false);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+  const [tableCreationCount, setTableCreationCount] = useState(0);
+  const [currentSubmissionId, setCurrentSubmissionId] = useState(null);
+  const [modalSubmissionInProgress, setModalSubmissionInProgress] =
+    useState(false);
 
   const [notifications] = useState([
     { id: 1, user: "Pythonlady", message: "sent you a message", avatar: "👩‍💻" },
@@ -80,38 +52,361 @@ const Dashboard = () => {
     },
   ]);
 
+  // Load all users for member search
+  const loadAllUsers = useCallback(async () => {
+    if (!isAuthenticated || !user) return;
+
+    try {
+      const identity = internetIdentityService.getIdentity();
+      if (!identity) {
+        console.error("No identity available");
+        return;
+      }
+
+      await authenticationService.initialize(identity);
+
+      // Ensure current user is registered first
+      const principal = identity.getPrincipal().toText();
+      let currentProfile =
+        internetIdentityService.getCurrentUser() || user || {};
+      if (
+        !currentProfile?.username ||
+        currentProfile.username === "User" ||
+        !currentProfile?.email ||
+        currentProfile.email === "user@example.com"
+      ) {
+        try {
+          await internetIdentityService.loadUserProfile();
+        } catch (e) {
+          console.warn("Unable to refresh profile from canister:", e);
+        }
+        currentProfile = internetIdentityService.getCurrentUser() || user || {};
+      }
+      const username = currentProfile?.username ?? "";
+      const email = currentProfile?.email ?? "";
+
+      await authenticationService.ensureUserRegistered(
+        principal,
+        username,
+        email
+      );
+
+      // Now load all users
+      const users = await authenticationService.getAllUsers();
+      setAllUsers(users);
+    } catch (error) {
+      console.error("Error loading users:", error);
+    }
+  }, [isAuthenticated, user]);
+
+  // Load user tables from the backend
+  const loadUserTables = useCallback(
+    async (forceReload = false) => {
+      console.log("loadUserTables called", {
+        isAuthenticated,
+        user,
+        isLoadingTables,
+        recentTablesLength: recentTables.length,
+        hasAttemptedLoad,
+        forceReload,
+      });
+
+      if (!isAuthenticated || !user) {
+        console.log("Not authenticated or no user, skipping table load");
+        setIsLoadingTables(false);
+        return;
+      }
+
+      if (isLoadingTables && !forceReload) {
+        console.log("Already loading tables, skipping (no force)");
+        return;
+      }
+
+      // Prevent multiple simultaneous calls unless forcing reload
+      if (!forceReload && recentTables.length > 0 && hasAttemptedLoad) {
+        console.log(
+          "Tables already loaded and attempt tracked, skipping (no force)"
+        );
+        return;
+      }
+
+      let timeoutId;
+      try {
+        setIsLoadingTables(true);
+        console.log("Starting to load tables...");
+
+        // Add a timeout to prevent infinite loading
+        timeoutId = setTimeout(() => {
+          console.log("Table loading timeout, setting loading to false");
+          setIsLoadingTables(false);
+        }, 10000); // 10 second timeout
+
+        let identity = internetIdentityService.getIdentity();
+        if (!identity) {
+          console.warn(
+            "No identity available yet; initializing Internet Identity..."
+          );
+          try {
+            await internetIdentityService.initialize();
+            identity = internetIdentityService.getIdentity();
+          } catch (e) {
+            console.error("Failed to initialize Internet Identity:", e);
+          }
+        }
+        if (!identity) {
+          console.error("No identity available after initialization");
+          setIsLoadingTables(false);
+          return;
+        }
+
+        console.log("Identity available, initializing services...");
+        console.log("Identity principal:", identity.getPrincipal().toText());
+
+        // Initialize both services with identity
+        await tableManagementService.initialize(identity);
+        await authenticationService.initialize(identity);
+
+        console.log("Services initialized, ensuring user registration...");
+
+        // Ensure current user is registered first
+        const principal = identity.getPrincipal().toText();
+        let currentProfile =
+          internetIdentityService.getCurrentUser() || user || {};
+        if (
+          !currentProfile?.username ||
+          currentProfile.username === "User" ||
+          !currentProfile?.email ||
+          currentProfile.email === "user@example.com"
+        ) {
+          try {
+            await internetIdentityService.loadUserProfile();
+          } catch (e) {
+            console.warn("Unable to refresh profile from canister:", e);
+          }
+          currentProfile =
+            internetIdentityService.getCurrentUser() || user || {};
+        }
+        const username = currentProfile?.username ?? "";
+        const email = currentProfile?.email ?? "";
+
+        console.log("Registering user:", { principal, username, email });
+
+        const registrationResult =
+          await authenticationService.ensureUserRegistered(
+            principal,
+            username,
+            email
+          );
+
+        console.log("User registration result:", registrationResult);
+        try {
+          const res = await authenticationService.getUserByPrincipal(principal);
+          if (res?.success && res.user) {
+            setUserProfile(res.user);
+          }
+        } catch {}
+        console.log("User registration completed, now fetching tables...");
+
+        // Get user tables
+        console.log("Calling getUserTables...");
+        const userTables = await tableManagementService.getUserTables();
+        console.log("User tables received:", userTables);
+
+        // Merge created and joined, then de-duplicate by id and add timestamp
+        const merged = [...userTables.created, ...userTables.joined];
+        const dedupMap = new Map();
+        for (const t of merged) {
+          const key = t?.id?.toString ? t.id.toString() : String(t.id);
+          // Prefer the first occurrence; ensure timestamp and lastUpdated exist
+          if (!dedupMap.has(key)) {
+            dedupMap.set(key, {
+              ...t,
+              timestamp: Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000,
+              lastUpdated: "Recently",
+            });
+          }
+        }
+        const deduped = Array.from(dedupMap.values());
+        console.log("Deduped tables:", deduped);
+
+        // Sort by most recent first
+        const sortedTables = deduped.sort((a, b) => b.timestamp - a.timestamp);
+
+        setRecentTables(sortedTables);
+        console.log(
+          "Tables loaded successfully:",
+          sortedTables.length,
+          "tables"
+        );
+      } catch (error) {
+        console.error("Error loading tables:", error);
+        console.error("Error details:", {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        });
+
+        // Fallback to mock data if backend fails
+        console.log("Falling back to mock data...");
+        setRecentTables([
+          {
+            id: 1,
+            title: "Seeker",
+            description:
+              "Seeker is a next-gen Web3 search engine that helps developers discover and integrate blockchain solutions.",
+            lastUpdated: "4 days ago",
+            timestamp: Date.now() - 4 * 24 * 60 * 60 * 1000,
+          },
+          {
+            id: 2,
+            title: "Compass",
+            description:
+              "Compass is a navigation tool for decentralized applications and blockchain networks.",
+            lastUpdated: "1 week ago",
+            timestamp: Date.now() - 7 * 24 * 60 * 60 * 1000,
+          },
+          {
+            id: 3,
+            title: "Kongswap",
+            description:
+              "Kongswap is a decentralized exchange platform for token trading and liquidity provision.",
+            lastUpdated: "2 weeks ago",
+            timestamp: Date.now() - 14 * 24 * 60 * 60 * 1000,
+          },
+          {
+            id: 4,
+            title: "Dappstore",
+            description:
+              "Dappstore is a curated marketplace for decentralized applications and blockchain tools.",
+            lastUpdated: "3 weeks ago",
+            timestamp: Date.now() - 21 * 24 * 60 * 60 * 1000,
+          },
+          {
+            id: 5,
+            title: "Café",
+            description:
+              "Café is a collaborative workspace platform for teams to build and manage projects together.",
+            lastUpdated: "1 month ago",
+            timestamp: Date.now() - 30 * 24 * 60 * 60 * 1000,
+          },
+          {
+            id: 6,
+            title: "Blockchain Hub",
+            description:
+              "Blockchain Hub is a comprehensive platform for blockchain education and development resources.",
+            lastUpdated: "1 month ago",
+            timestamp: Date.now() - 32 * 24 * 60 * 60 * 1000,
+          },
+        ]);
+      } finally {
+        console.log("Setting isLoadingTables to false");
+        clearTimeout(timeoutId);
+        setIsLoadingTables(false);
+      }
+    },
+    [isAuthenticated, user, isLoadingTables]
+  );
+
   useEffect(() => {
+    console.log("Dashboard useEffect triggered", { isAuthenticated, user });
+
     if (!isAuthenticated) {
+      console.log("Not authenticated, navigating to auth");
       navigate("/auth");
       return;
     }
 
     // Get the actual user profile data
-    const getActualUserProfile = () => {
-      if (user) {
-        // Check if user has real profile data (not placeholder)
-        if (user.username && user.username !== "Returning User") {
-          setUserProfile(user);
-        } else {
-          // Try to get profile from localStorage if available
+    const getActualUserProfile = async () => {
+      try {
+        let identity = internetIdentityService.getIdentity();
+        if (!identity) {
           try {
-            const storedProfile = localStorage.getItem("cafe_user_profile");
-            if (storedProfile) {
-              const parsedProfile = JSON.parse(storedProfile);
-              setUserProfile(parsedProfile);
-            } else {
-              setUserProfile(user);
-            }
+            await internetIdentityService.initialize();
+            identity = internetIdentityService.getIdentity();
           } catch {
-            console.log("No stored profile found, using auth user");
-            setUserProfile(user);
+            // ignore
           }
         }
+        if (!identity) {
+          setUserProfile(user || null);
+          return;
+        }
+        await authenticationService.initialize(identity);
+        const principal = identity.getPrincipal().toText();
+        const res = await authenticationService.getUserByPrincipal(principal);
+        if (res?.success && res.user) {
+          setUserProfile(res.user);
+          return;
+        }
+      } catch (e) {
+        console.warn("Unable to load profile from canister:", e);
       }
+      const fallback = internetIdentityService.getCurrentUser() || user || null;
+      if (fallback) setUserProfile(fallback);
     };
 
     getActualUserProfile();
+
+    // Always force reload tables when landing on dashboard after auth
+    if (!isLoadingTables) {
+      setHasAttemptedLoad(true);
+      loadUserTables(true);
+    }
+
+    // Always reload users as well
+    loadAllUsers();
   }, [isAuthenticated, navigate, user]);
+
+  // Safety: force a reload shortly after mount when authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const t = setTimeout(() => {
+      console.log("Post-mount force reload tables");
+      loadUserTables(true);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [isAuthenticated]);
+
+  // Reset loading state when user changes
+  useEffect(() => {
+    if (user && user.principal !== userProfile?.principal) {
+      setHasAttemptedLoad(false);
+      setRecentTables([]);
+      setIsLoadingTables(false);
+    }
+  }, [user, userProfile]);
+
+  // Filter users based on search input
+  useEffect(() => {
+    if (memberSearch.trim() === "") {
+      setFilteredUsers([]);
+      setShowUserDropdown(false);
+      return;
+    }
+
+    const filtered = allUsers
+      .filter((u) => {
+        if (!u) return false;
+        const searchLower = memberSearch.toLowerCase();
+        const username = (u.username || "").toLowerCase();
+        const email = (u.email || "").toLowerCase();
+        const github = (u.github || "").toLowerCase();
+        const principalText = (u.principal || "").toString().toLowerCase();
+        return (
+          username.includes(searchLower) ||
+          email.includes(searchLower) ||
+          (github && github.includes(searchLower)) ||
+          principalText.includes(searchLower)
+        );
+      })
+      .filter(
+        (u) => (u?.principal || "").toString() !== userProfile?.principal
+      );
+
+    setFilteredUsers(filtered);
+    setShowUserDropdown(filtered.length > 0);
+  }, [memberSearch, allUsers, userProfile]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -119,7 +414,14 @@ const Dashboard = () => {
   };
 
   const handleCreateTable = () => {
+    // Prevent opening modal if already open
+    if (showCreateModal) {
+      console.log("Modal already open, ignoring create table request");
+      return;
+    }
+    console.log("Opening create table modal");
     setShowCreateModal(true);
+    setModalSubmissionInProgress(false); // Reset submission state for new modal
   };
 
   const handleCloseModal = () => {
@@ -127,35 +429,167 @@ const Dashboard = () => {
     setFormData({
       name: "",
       description: "",
-      image: null,
       members: [],
-      githubRepo: "",
     });
     setMemberSearch("");
+    setError("");
+    setShowUserDropdown(false);
+    setModalSubmissionInProgress(false); // Reset submission state
   };
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
-    console.log("Creating table with data:", formData);
-    // TODO: Implement table creation logic
-    handleCloseModal();
-  };
+    e.stopPropagation(); // Prevent event bubbling
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFormData((prev) => ({ ...prev, image: file }));
+    // Prevent duplicate submissions
+    if (isSubmitting || modalSubmissionInProgress) {
+      console.log(
+        "Form submission already in progress or modal submission in progress, ignoring duplicate submit"
+      );
+      return;
+    }
+
+    // Set modal submission flag to prevent multiple submissions
+    setModalSubmissionInProgress(true);
+
+    // Generate unique submission ID to prevent race conditions
+    const submissionId = Date.now() + Math.random();
+    setCurrentSubmissionId(submissionId);
+    console.log("Starting submission with ID:", submissionId);
+
+    // Disable the form to prevent multiple submissions
+    const form = e.target;
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Creating...";
+    }
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      console.log("Starting table creation process...");
+
+      // Increment creation counter for rging
+      setTableCreationCount((prev) => prev + 1);
+      console.log("Table creation attempt #", tableCreationCount + 1);
+
+      const identity = internetIdentityService.getIdentity();
+      if (!identity) {
+        throw new Error("No identity available");
+      }
+
+      console.log("Identity obtained, initializing services...");
+
+      // Initialize services with identity
+      await tableManagementService.initialize(identity);
+      await authenticationService.initialize(identity);
+
+      console.log("Services initialized, ensuring user registration...");
+
+      // Ensure current user is registered first
+      const principal = identity.getPrincipal().toText();
+      let currentProfile =
+        internetIdentityService.getCurrentUser() || user || {};
+      if (
+        !currentProfile?.username ||
+        currentProfile.username === "User" ||
+        !currentProfile?.email ||
+        currentProfile.email === "user@example.com"
+      ) {
+        try {
+          await internetIdentityService.loadUserProfile();
+        } catch (e) {
+          console.warn("Unable to refresh profile from canister:", e);
+        }
+        currentProfile = internetIdentityService.getCurrentUser() || user || {};
+      }
+      const username = currentProfile?.username ?? "";
+      const email = currentProfile?.email ?? "";
+
+      await authenticationService.ensureUserRegistered(
+        principal,
+        username,
+        email
+      );
+
+      try {
+        const res = await authenticationService.getUserByPrincipal(principal);
+        if (res?.success && res.user) {
+          setUserProfile(res.user);
+        }
+      } catch {}
+
+      console.log("User registration ensured, creating table...");
+
+      // Create the table using the backend service
+      const newTable = await tableManagementService.createTable(
+        formData.name,
+        formData.description
+      );
+
+      console.log("Table created successfully:", newTable);
+
+      // Handle member invitations after table creation
+      if (formData.members.length > 0) {
+        console.log("Processing member invitations...");
+        for (const member of formData.members) {
+          try {
+            await tableManagementService.requestJoinTable(
+              member.principal,
+              newTable.id
+            );
+            console.log(`Invited ${member.username} to table ${newTable.id}`);
+          } catch (inviteError) {
+            console.error(`Failed to invite ${member.username}:`, inviteError);
+          }
+        }
+      }
+
+      console.log("Reloading user tables...");
+
+      // Close modal immediately for better UX (unconditional after success)
+      handleCloseModal();
+
+      // Refresh tables in background
+      setHasAttemptedLoad(false);
+      setRecentTables((prev) => prev); // keep current list while refreshing
+      // Debounced reload
+      setTimeout(() => {
+        loadUserTables();
+      }, 100);
+
+      console.log("Table creation process completed successfully");
+    } catch (err) {
+      console.error("Table creation failed:", err);
+      setError(err.message || "Failed to create table");
+    } finally {
+      // Re-enable the submit button
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "Create Table";
+      }
+      setIsSubmitting(false);
     }
   };
 
-  const handleAddMember = () => {
-    if (memberSearch.trim()) {
+  const handleAddMember = (selectedUser) => {
+    // Check if user is already added
+    const isAlreadyAdded = formData.members.some(
+      (member) =>
+        member.principal.toString() === selectedUser.principal.toString()
+    );
+
+    if (!isAlreadyAdded) {
       setFormData((prev) => ({
         ...prev,
-        members: [...prev.members, memberSearch.trim()],
+        members: [...prev.members, selectedUser],
       }));
-      setMemberSearch("");
     }
+
+    setMemberSearch("");
+    setShowUserDropdown(false);
   };
 
   const handleRemoveMember = (index) => {
@@ -163,6 +597,93 @@ const Dashboard = () => {
       ...prev,
       members: prev.members.filter((_, i) => i !== index),
     }));
+  };
+
+  const handleTableClick = (table) => {
+    setSelectedTable(table);
+    setShowInvitations(false);
+  };
+
+  const handleInvitationUpdate = () => {
+    loadUserTables();
+  };
+
+  const handleLeaveTable = () => {
+    setSelectedTable(null);
+    loadUserTables();
+  };
+
+  const handleBackToTables = () => {
+    setSelectedTable(null);
+    setShowInvitations(false);
+  };
+
+  // Test function to check authentication status
+  const testBackendDirectly = async () => {
+    try {
+      console.log("Testing authentication and backend...");
+
+      // Check if user is authenticated first
+      if (!isAuthenticated) {
+        console.log("User not authenticated, cannot test backend");
+        setRecentTables([]);
+        setIsLoadingTables(false);
+        return;
+      }
+
+      // Check if Internet Identity service is available
+      const identity = internetIdentityService.getIdentity();
+      console.log("Internet Identity available:", !!identity);
+      console.log("Identity object:", identity);
+
+      if (!identity) {
+        console.log("No identity available - user not properly authenticated");
+        setRecentTables([]);
+        setIsLoadingTables(false);
+        return;
+      }
+
+      // Check if identity has required methods
+      if (typeof identity.getPrincipal !== "function") {
+        console.error("Identity object is missing getPrincipal method");
+        setRecentTables([]);
+        setIsLoadingTables(false);
+        return;
+      }
+
+      console.log("Identity principal:", identity.getPrincipal().toText());
+      console.log("Identity methods:", Object.getOwnPropertyNames(identity));
+
+      // Try to initialize services with real identity
+      await tableManagementService.initialize(identity);
+      await authenticationService.initialize(identity);
+
+      // Test getting user tables
+      const userTables = await tableManagementService.getUserTables();
+      console.log("Backend test result:", userTables);
+
+      // Set the result
+      const allTables = [
+        ...userTables.created.map((table) => ({
+          ...table,
+          timestamp: Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000,
+          lastUpdated: "Recently",
+        })),
+        ...userTables.joined.map((table) => ({
+          ...table,
+          timestamp: Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000,
+          lastUpdated: "Recently",
+        })),
+      ];
+
+      setRecentTables(allTables);
+      setIsLoadingTables(false);
+    } catch (error) {
+      console.error("Backend test failed:", error);
+      // Set empty tables to stop loading
+      setRecentTables([]);
+      setIsLoadingTables(false);
+    }
   };
 
   const handleImportFromGithub = () => {
@@ -176,6 +697,18 @@ const Dashboard = () => {
 
   // Use userProfile if available, otherwise fall back to user
   const displayUser = userProfile || user;
+  // Principal-based fallback for display when profile hasn't loaded
+  const identityPrincipal = (() => {
+    try {
+      const id = internetIdentityService.getIdentity();
+      return id ? id.getPrincipal().toText() : "";
+    } catch {
+      return "";
+    }
+  })();
+  const principalShort = identityPrincipal
+    ? `${identityPrincipal.slice(0, 5)}...${identityPrincipal.slice(-5)}`
+    : "";
 
   return (
     <div className={styles["dashboard-page"]}>
@@ -215,14 +748,16 @@ const Dashboard = () => {
           <div className={styles["user-profile"]}>
             <div>
               <div className={styles["user-avatar"]}>
-                {displayUser?.username?.charAt(0)?.toUpperCase() || "U"}
+                {displayUser?.username?.charAt(0)?.toUpperCase() ||
+                  principalShort?.charAt(0)?.toUpperCase() ||
+                  ""}
               </div>
               <div className={styles["user-info"]}>
                 <div className={styles["username"]}>
-                  {displayUser?.username || "User"}
+                  {displayUser?.username || principalShort}
                 </div>
                 <div className={styles["user-email"]}>
-                  {displayUser?.email || "user@example.com"}
+                  {displayUser?.email || ""}
                 </div>
               </div>
             </div>
@@ -298,90 +833,242 @@ const Dashboard = () => {
           {/* Content Body: Workspace + Notifications */}
           <div className={styles["content-body"]}>
             <main className={styles["workspace"]}>
-              <section className={styles["pull-up-section"]}>
-                <h2 className={styles["section-title"]}>Pull up a Table</h2>
-                <div className={styles["action-cards"]}>
+              {/* Navigation Header */}
+              <div className={styles["workspace-header"]}>
+                <div className={styles["workspace-nav"]}>
                   <button
-                    className={`${styles["action-card"]} ${styles["create-card"]}`}
-                    onClick={handleCreateTable}
+                    className={`${styles["nav-button"]} ${
+                      !selectedTable && !showInvitations ? styles["active"] : ""
+                    }`}
+                    onClick={handleBackToTables}
                   >
-                    <div className={styles["card-icon"]}>
-                      <svg
-                        width="42"
-                        height="42"
-                        viewBox="0 0 42 42"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M37.4062 21C37.4062 21.5221 37.1988 22.0229 36.8296 22.3921C36.4604 22.7613 35.9596 22.9688 35.4375 22.9688H22.9688V35.4375C22.9688 35.9596 22.7613 36.4604 22.3921 36.8296C22.0229 37.1988 21.5221 37.4062 21 37.4062C20.4779 37.4062 19.9771 37.1988 19.6079 36.8296C19.2387 36.4604 19.0312 35.9596 19.0312 35.4375V22.9688H6.5625C6.04036 22.9688 5.5396 22.7613 5.17038 22.3921C4.80117 22.0229 4.59375 21.5221 4.59375 21C4.59375 20.4779 4.80117 19.9771 5.17038 19.6079C5.5396 19.2387 6.04036 19.0312 6.5625 19.0312H19.0312V6.5625C19.0312 6.04036 19.2387 5.5396 19.6079 5.17038C19.9771 4.80117 20.4779 4.59375 21 4.59375C21.5221 4.59375 22.0229 4.80117 22.3921 5.17038C22.7613 5.5396 22.9688 6.04036 22.9688 6.5625V19.0312H35.4375C35.9596 19.0312 36.4604 19.2387 36.8296 19.6079C37.1988 19.9771 37.4062 20.4779 37.4062 21Z"
-                          fill="black"
-                        />
-                      </svg>
-                    </div>
-                    <span className={styles["card-text"]}>
-                      Create New Table
-                    </span>
+                    Tables
                   </button>
-
                   <button
-                    className={`${styles["action-card"]} ${styles["import-card"]}`}
-                    onClick={handleImportFromGithub}
+                    className={`${styles["nav-button"]} ${
+                      showInvitations ? styles["active"] : ""
+                    }`}
+                    onClick={() => {
+                      setShowInvitations(true);
+                      setSelectedTable(null);
+                    }}
                   >
-                    <div className={styles["card-icon"]}>
-                      <svg
-                        width="43"
-                        height="46"
-                        viewBox="0 0 43 46"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M29.0834 44V37.9811C29.1647 36.981 29.0251 35.9757 28.6739 35.032C28.3228 34.0882 27.7681 33.2276 27.0467 32.5074C33.85 31.7734 41 29.2777 41 17.8271C40.9994 14.899 39.8358 12.0833 37.75 9.9626C38.7377 7.40089 38.6679 4.56936 37.555 2.05619C37.555 2.05619 34.9984 1.32217 29.0834 5.16003C24.1171 3.85932 18.883 3.85932 13.9168 5.16003C8.00181 1.32217 5.44515 2.05619 5.44515 2.05619C4.33231 4.56936 4.26247 7.40089 5.25015 9.9626C3.14877 12.099 1.98397 14.9402 2.00017 17.89C2.00017 29.2567 9.15013 31.7524 15.9534 32.5703C15.2406 33.2833 14.6909 34.1336 14.3399 35.0658C13.989 35.998 13.8449 36.9913 13.9168 37.9811V44"
-                          stroke="#263238"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </div>
-                    <span className={styles["card-text"]}>
-                      Import from Github
-                    </span>
+                    Invitations
                   </button>
                 </div>
-              </section>
+                {/* Removed duplicate create table button to prevent multiple table creation */}
+              </div>
 
-              <section className={styles["recent-tables-section"]}>
-                <h2 className={styles["section-title"]}>Recent Tables</h2>
-                <div className={styles["tables-grid"]}>
-                  {recentTables.map((table) => (
-                    <div key={table.id} className={styles["table-card"]}>
-                      <div className={styles["table-content"]}>
-                        <p className={styles["table-description"]}>
-                          {table.description}
-                        </p>
-                      </div>
-                      <div className={styles["table-footer"]}>
-                        <span className={styles["table-title"]}>
-                          {table.title}
-                        </span>
-                        <button className={styles["table-options"]}>
-                          <span>⋯</span>
+              {/* Main Content Area */}
+              <div className={styles["workspace-content"]}>
+                {/* Debug Info */}
+                {/* <div
+                  style={{
+                    padding: "10px",
+                    background: "#f0f0f0",
+                    marginBottom: "10px",
+                    fontSize: "12px",
+                  }}
+                >
+                  Debug: isAuthenticated={isAuthenticated.toString()}, user=
+                  {user ? "yes" : "no"}, userPrincipal=
+                  {user?.principal || "none"}, isLoadingTables=
+                  {isLoadingTables.toString()}, tables={recentTables.length},
+                  creationCount={tableCreationCount}, submissionId=
+                  {currentSubmissionId}, modalSubmission=
+                  {modalSubmissionInProgress.toString()}
+                  <button
+                    onClick={() => {
+                      console.log("Manual reload triggered");
+                      loadUserTables();
+                    }}
+                    style={{ marginLeft: "10px", padding: "5px 10px" }}
+                  >
+                    Reload Tables
+                  </button>
+                  <button
+                    onClick={() => {
+                      console.log("Test mode triggered");
+                      setTestMode(!testMode);
+                    }}
+                    style={{
+                      marginLeft: "10px",
+                      padding: "5px 10px",
+                      background: testMode ? "#ff4444" : "#44ff44",
+                    }}
+                  >
+                    Test Mode: {testMode ? "ON" : "OFF"}
+                  </button>
+                  {testMode && (
+                    <>
+                      <button
+                        onClick={testBackendDirectly}
+                        style={{
+                          marginLeft: "10px",
+                          padding: "5px 10px",
+                          background: "#4444ff",
+                          color: "white",
+                        }}
+                      >
+                        Test Backend
+                      </button>
+                      <button
+                        onClick={() => {
+                          const identity =
+                            internetIdentityService.getIdentity();
+                          console.log("Identity test:", {
+                            identity: !!identity,
+                            type: typeof identity,
+                            methods: identity
+                              ? Object.getOwnPropertyNames(identity)
+                              : [],
+                            principal:
+                              identity?.getPrincipal?.()?.toText?.() || "N/A",
+                          });
+                        }}
+                        style={{
+                          marginLeft: "10px",
+                          padding: "5px 10px",
+                          background: "#ff8844",
+                          color: "white",
+                        }}
+                      >
+                        Test Identity
+                      </button>
+                    </>
+                  )}
+                </div> */}
+
+                {showInvitations ? (
+                  <TableInvitations
+                    onInvitationUpdate={handleInvitationUpdate}
+                  />
+                ) : selectedTable ? (
+                  <TableDetails
+                    table={selectedTable}
+                    onTableUpdate={handleInvitationUpdate}
+                    onLeaveTable={handleLeaveTable}
+                  />
+                ) : (
+                  <>
+                    {/* Welcome Section */}
+                    <section className={styles["pull-up-section"]}>
+                      <h2 className={styles["section-title"]}>
+                        Pull up a Table
+                      </h2>
+                      <div className={styles["action-cards"]}>
+                        <button
+                          className={`${styles["action-card"]} ${styles["create-card"]}`}
+                          onClick={handleCreateTable}
+                        >
+                          <div className={styles["card-icon"]}>
+                            <svg
+                              width="42"
+                              height="42"
+                              viewBox="0 0 42 42"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M37.4062 21C37.4062 21.5221 37.1988 22.0229 36.8296 22.3921C36.4604 22.7613 35.9596 22.9688 35.4375 22.9688H22.9688V35.4375C22.9688 35.9596 22.7613 36.4604 22.3921 36.8296C22.0229 37.1988 21.5221 37.4062 21 37.4062C20.4779 37.4062 19.9771 37.1988 19.6079 36.8296C19.2387 36.4604 19.0312 35.9596 19.0312 35.4375V22.9688H6.5625C6.04036 22.9688 5.5396 22.7613 5.17038 22.3921C4.80117 22.0229 4.59375 21.5221 4.59375 21C4.59375 20.4779 4.80117 19.9771 5.17038 19.6079C5.5396 19.2387 6.04036 19.0312 6.5625 19.0312H19.0312V6.5625C19.0312 6.04036 19.2387 5.5396 19.6079 5.17038C19.9771 4.80117 20.4779 4.59375 21 4.59375C21.5221 4.59375 22.0229 4.80117 22.3921 5.17038C22.7613 5.5396 22.9688 6.04036 22.9688 6.5625V19.0312H35.4375C35.9596 19.0312 36.4604 19.2387 36.8296 19.6079C37.1988 19.9771 37.4062 20.4779 37.4062 21Z"
+                                fill="black"
+                              />
+                            </svg>
+                          </div>
+                          <span className={styles["card-text"]}>
+                            Create New Table
+                          </span>
+                        </button>
+
+                        <button
+                          className={`${styles["action-card"]} ${styles["import-card"]}`}
+                          onClick={handleImportFromGithub}
+                        >
+                          <div className={styles["card-icon"]}>
+                            <svg
+                              width="43"
+                              height="46"
+                              viewBox="0 0 43 46"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M29.0834 44V37.9811C29.1647 36.981 29.0251 35.9757 28.6739 35.032C28.3228 34.0882 27.7681 33.2276 27.0467 32.5074C33.85 31.7734 41 29.2777 41 17.8271C40.9994 14.899 39.8358 12.0833 37.75 9.9626C38.7377 7.40089 38.6679 4.56936 37.555 2.05619C37.555 2.05619 34.9984 1.32217 29.0834 5.16003C24.1171 3.85932 18.883 3.85932 13.9168 5.16003C8.00181 1.32217 5.44515 2.05619 5.44515 2.05619C4.33231 4.56936 4.26247 7.40089 5.25015 9.9626C3.14877 12.099 1.98397 14.9402 2.00017 17.89C2.00017 29.2567 9.15013 31.7524 15.9534 32.5703C15.2406 33.2833 14.6909 34.1336 14.3399 35.0658C13.989 35.998 13.8449 36.9913 13.9168 37.9811V44"
+                                stroke="#263238"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </div>
+                          <span className={styles["card-text"]}>
+                            Import from Github
+                          </span>
                         </button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-                <div className={styles["last-updated"]}>4 days ago</div>
-              </section>
+                    </section>
+
+                    {/* Tables Section */}
+                    <section className={styles["recent-tables-section"]}>
+                      <h2 className={styles["section-title"]}>Your Tables</h2>
+                      <div className={styles["tables-grid"]}>
+                        {isLoadingTables ? (
+                          <div style={{ padding: "20px", textAlign: "center" }}>
+                            <p>Loading tables...</p>
+                            <small>
+                              Please wait while we fetch your tables
+                            </small>
+                          </div>
+                        ) : recentTables.length === 0 ? (
+                          <div style={{ padding: "20px", textAlign: "center" }}>
+                            <p>No tables found. Create a new one!</p>
+                            <small>
+                              Get started by creating your first collaborative
+                              workspace
+                            </small>
+                          </div>
+                        ) : (
+                          recentTables.map((table) => (
+                            <div
+                              key={table.id}
+                              className={styles["table-card"]}
+                              onClick={() => handleTableClick(table)}
+                            >
+                              <div className={styles["table-content"]}>
+                                <p className={styles["table-description"]}>
+                                  {table.description}
+                                </p>
+                              </div>
+                              <div className={styles["table-footer"]}>
+                                <span className={styles["table-title"]}>
+                                  {table.title}
+                                </span>
+                                <div className={styles["table-meta"]}>
+                                  <span
+                                    className={styles["table-collaborators"]}
+                                  >
+                                    {table.tableCollaborators?.length || 0}{" "}
+                                    collaborators
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </section>
+                  </>
+                )}
+              </div>
             </main>
 
             <aside className={styles["notifications-panel"]}>
               <div className={styles["notifications-header"]}>
                 <div className={styles["notifications-icon"]}>
                   <span>🔔</span>
-                  <span className={styles["notification-badge"]}>0</span>
+                  <span className={styles["notification-badge"]}>
+                    {notifications.length}
+                  </span>
                 </div>
                 <span>Notifications</span>
               </div>
@@ -434,51 +1121,19 @@ const Dashboard = () => {
               </button>
             </div>
 
-            <form className={styles["modal-form"]} onSubmit={handleFormSubmit}>
-              {/* Image Upload */}
-              <div className={styles["form-group"]}>
-                <label className={styles["form-label"]}>Table Image</label>
-                <div className={styles["image-upload"]}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className={styles["file-input"]}
-                    id="table-image"
-                  />
-                  <label
-                    htmlFor="table-image"
-                    className={styles["upload-label"]}
-                  >
-                    {formData.image ? (
-                      <img
-                        src={URL.createObjectURL(formData.image)}
-                        alt="Preview"
-                        className={styles["image-preview"]}
-                      />
-                    ) : (
-                      <div className={styles["upload-placeholder"]}>
-                        <svg
-                          width="32"
-                          height="32"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                        >
-                          <path
-                            d="M21 19V5C21 3.9 20.1 3 19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19ZM8.5 13.5L11 16.51L14.5 12L19 18H5L8.5 13.5Z"
-                            fill="currentColor"
-                          />
-                        </svg>
-                        <span>Click to upload image</span>
-                      </div>
-                    )}
-                  </label>
-                </div>
-              </div>
-
+            <form
+              className={styles["modal-form"]}
+              onSubmit={(e) => {
+                console.log(
+                  "Form onSubmit event triggered",
+                  new Date().toISOString()
+                );
+                handleFormSubmit(e);
+              }}
+            >
               {/* Name */}
               <div className={styles["form-group"]}>
-                <label className={styles["form-label"]}>Table Name</label>
+                <label className={styles["form-label"]}>Table Name *</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -488,12 +1143,13 @@ const Dashboard = () => {
                   className={styles["form-input"]}
                   placeholder="Enter table name"
                   required
+                  disabled={isSubmitting}
                 />
               </div>
 
               {/* Description */}
               <div className={styles["form-group"]}>
-                <label className={styles["form-label"]}>Description</label>
+                <label className={styles["form-label"]}>Description *</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) =>
@@ -506,37 +1162,56 @@ const Dashboard = () => {
                   placeholder="Describe your table"
                   rows="3"
                   required
+                  disabled={isSubmitting}
                 />
               </div>
 
               {/* Invite Members */}
               <div className={styles["form-group"]}>
-                <label className={styles["form-label"]}>Invite Members</label>
+                <label className={styles["form-label"]}>
+                  Invite Members (Optional)
+                </label>
                 <div className={styles["member-search"]}>
                   <input
                     type="text"
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
                     className={styles["form-input"]}
-                    placeholder="Search by GitHub username or Principal ID"
+                    placeholder="Search by username, email, GitHub, or Principal ID"
+                    disabled={isSubmitting}
                   />
-                  <button
-                    type="button"
-                    onClick={handleAddMember}
-                    className={styles["add-member-btn"]}
-                  >
-                    Add
-                  </button>
+                  {showUserDropdown && (
+                    <div className={styles["user-dropdown"]}>
+                      {filteredUsers.map((user) => (
+                        <div
+                          key={user.principal}
+                          className={styles["user-option"]}
+                          onClick={() => handleAddMember(user)}
+                        >
+                          <span className={styles["user-option-name"]}>
+                            {user.username}
+                          </span>
+                          <span className={styles["user-option-email"]}>
+                            {user.email}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {formData.members.length > 0 && (
                   <div className={styles["members-list"]}>
                     {formData.members.map((member, index) => (
-                      <div key={index} className={styles["member-tag"]}>
-                        <span>{member}</span>
+                      <div
+                        key={member.principal}
+                        className={styles["member-tag"]}
+                      >
+                        <span>{member.username}</span>
                         <button
                           type="button"
                           onClick={() => handleRemoveMember(index)}
                           className={styles["remove-member"]}
+                          disabled={isSubmitting}
                         >
                           ×
                         </button>
@@ -544,58 +1219,13 @@ const Dashboard = () => {
                     ))}
                   </div>
                 )}
-              </div>
-
-              {/* GitHub Import */}
-              <div className={styles["form-group"]}>
-                <label className={styles["form-label"]}>
-                  Import from GitHub (Optional)
-                </label>
-                <div className={styles["github-import"]}>
-                  <input
-                    type="text"
-                    value={formData.githubRepo}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        githubRepo: e.target.value,
-                      }))
-                    }
-                    className={styles["form-input"]}
-                    placeholder="owner/repository"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleImportFromGithub}
-                    className={styles["github-btn"]}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M12 2L2 7L12 12L22 7L12 2Z"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M2 17L12 22L22 17"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M2 12L12 17L22 12"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    Import
-                  </button>
+                <div className={styles["form-help"]}>
+                  Members will be invited after the table is created.
                 </div>
               </div>
+
+              {/* Error Display */}
+              {error && <div className={styles["error-message"]}>{error}</div>}
 
               {/* Form Actions */}
               <div className={styles["form-actions"]}>
@@ -603,11 +1233,20 @@ const Dashboard = () => {
                   type="button"
                   onClick={handleCloseModal}
                   className={styles["cancel-btn"]}
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className={styles["create-btn"]}>
-                  Create Table
+                <button
+                  type="submit"
+                  className={styles["create-btn"]}
+                  disabled={
+                    isSubmitting ||
+                    !formData.name.trim() ||
+                    !formData.description.trim()
+                  }
+                >
+                  {isSubmitting ? "Creating..." : "Create Table"}
                 </button>
               </div>
             </form>

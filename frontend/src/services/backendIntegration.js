@@ -60,13 +60,14 @@ class BackendIntegrationService {
       const envCanisterId =
         (typeof import.meta !== "undefined" &&
           import.meta.env &&
-          (import.meta.env.VITE_AUTHENTICATION_CANISTER_ID ||
-            import.meta.env.CANISTER_ID_authentication ||
-            import.meta.env.CANISTER_ID_AUTHENTICATION)) ||
+          import.meta.env.VITE_AUTHENTICATION_CANISTER_ID) ||
         "";
       this.authenticationCanisterId = envCanisterId;
       if (!this.authenticationCanisterId) {
-        console.warn("Authentication canister ID not provided in env");
+        console.warn(
+          "Authentication canister ID not provided in env:",
+          import.meta.env
+        );
         this.dependenciesLoaded = true;
         this.backendAvailable = false;
         return false;

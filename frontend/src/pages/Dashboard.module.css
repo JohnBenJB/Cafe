@@ -155,9 +155,9 @@
 .user-info {
   display: flex;
   flex-direction: column;
-  text-transform: capitalize;
 }
 .username {
+  text-transform: capitalize;
   font-size: 0.875rem;
   font-weight: 600;
   color: #1d1d1f;
@@ -273,6 +273,66 @@
   gap: 1rem;
   overflow: hidden;
 }
+
+/* Workspace Header */
+.workspace-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  margin-bottom: 1rem;
+}
+
+.workspace-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nav-button {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-button:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.nav-button.active {
+  background: #e1760c;
+  color: white;
+  border-color: #e1760c;
+}
+
+.create-table-btn {
+  padding: 0.75rem 1.5rem;
+  background: #e1760c;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.create-table-btn:hover {
+  background: #d97706;
+  transform: translateY(-1px);
+}
+
+.workspace-content {
+  flex: 1;
+  overflow-y: auto;
+}
 .section-title {
   font-size: 1.5rem;
   font-weight: 600;
@@ -288,7 +348,11 @@
   border-radius: 20px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-  padding: 3rem;
+  padding: 2rem;
+}
+
+.pull-up-section {
+  margin-bottom: 1rem;
 }
 
 /* Action cards */
@@ -357,6 +421,8 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  cursor: pointer;
+  max-width: 600px;
 }
 .table-card:hover {
   transform: translateY(-2px);
@@ -378,6 +444,19 @@
   padding: 0.875rem 1.25rem;
   background: rgba(0, 0, 0, 0.04);
   border-top: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.table-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.table-collaborators {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
 }
 .table-title {
   font-size: 1.25rem;
@@ -668,6 +747,7 @@
 
 /* Member Search */
 .member-search {
+  position: relative;
   display: flex;
   gap: 0.5rem;
 }
@@ -677,11 +757,11 @@
 }
 
 .add-member-btn {
-  padding: 0.875rem 1.5rem;
+  padding: 0.875rem 1.25rem;
   background: linear-gradient(135deg, #e1760c, #ff8a00);
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -694,11 +774,57 @@
   box-shadow: 0 4px 12px rgba(225, 118, 12, 0.3);
 }
 
+/* User Dropdown */
+.user-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 0.25rem;
+}
+
+.user-option {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.user-option:last-child {
+  border-bottom: none;
+}
+
+.user-option:hover {
+  background: rgba(225, 118, 12, 0.05);
+}
+
+.user-option-name {
+  font-weight: 600;
+  color: #1d1d1f;
+  font-size: 0.875rem;
+}
+
+.user-option-email {
+  font-size: 0.75rem;
+  color: #86868b;
+  margin-top: 0.125rem;
+}
+
+/* Members List */
 .members-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
 }
 
 .member-tag {
@@ -717,9 +843,8 @@
   background: none;
   border: none;
   color: #e1760c;
+  font-size: 1.125rem;
   cursor: pointer;
-  font-size: 1.25rem;
-  font-weight: 600;
   padding: 0;
   width: 20px;
   height: 20px;
@@ -732,6 +857,82 @@
 
 .remove-member:hover {
   background: rgba(225, 118, 12, 0.2);
+}
+
+/* Form Help Text */
+.form-help {
+  font-size: 0.75rem;
+  color: #86868b;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+/* Error Message */
+.error-message {
+  padding: 0.75rem 1rem;
+  background: rgba(255, 59, 48, 0.1);
+  border: 1px solid rgba(255, 59, 48, 0.2);
+  border-radius: 8px;
+  color: #ff3b30;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+/* Loading and Empty States */
+.tables-grid p {
+  grid-column: 1 / -1;
+  text-align: left;
+  padding: 3rem 1rem;
+  color: #86868b;
+  font-size: 1rem;
+  background: rgba(248, 249, 250, 0.6);
+  border-radius: 12px;
+  border: 1px dashed rgba(0, 0, 0, 0.1);
+}
+
+/* Disabled States */
+.form-input:disabled,
+.form-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.add-member-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.remove-member:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.remove-member:disabled:hover {
+  background: none;
+}
+
+.cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.create-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.create-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(225, 118, 12, 0.3);
 }
 
 /* GitHub Import */

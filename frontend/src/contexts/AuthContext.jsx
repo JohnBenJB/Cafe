@@ -17,6 +17,8 @@ export const AuthProvider = ({ children }) => {
         const isAuth = await internetIdentityService.isUserAuthenticated();
         if (isAuth) {
           setIsAuthenticated(true);
+          // Force fresh load from canister to avoid stale placeholders
+          await internetIdentityService.loadUserProfile();
           const currentUser = internetIdentityService.getCurrentUser();
           setUser(currentUser);
         }
@@ -41,6 +43,12 @@ export const AuthProvider = ({ children }) => {
         const currentUser = internetIdentityService.getCurrentUser();
         setUser(currentUser);
         setIsAuthenticated(true);
+        console.log(
+          "Signed in as:",
+          currentUser?.principal,
+          currentUser?.username,
+          currentUser?.email
+        );
 
         console.log("Sign in completed, user profile loaded:", currentUser);
         return { success: true };

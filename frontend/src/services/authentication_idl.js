@@ -29,17 +29,14 @@ export const idlFactory = ({ IDL }) => {
   });
 
   return IDL.Service({
-    get_profile: IDL.Func([IDL.Text], [AuthResult], ["query"]),
     register_or_update: IDL.Func(
       [IDL.Text, ProfileUpdateRequest],
       [AuthResult],
       []
     ),
-    mark_profile_completed: IDL.Func([IDL.Text], [AuthResult], []),
-    has_completed_setup: IDL.Func([IDL.Text], [IDL.Bool], ["query"]),
-    get_all_users: IDL.Func([], [IDL.Vec(User)], ["query"]),
-    get_user_by_principal: IDL.Func([IDL.Text], [AuthResult], ["query"]),
     update_user_add_table: IDL.Func([IDL.Text, IDL.Nat], [AuthResult], []),
     update_user_remove_table: IDL.Func([IDL.Text, IDL.Nat], [AuthResult], []),
+    get_all_users: IDL.Func([], [IDL.Vec(User)], ["query"]),
+    get_user_by_principal: IDL.Func([IDL.Text], [AuthResult], ["query"]),
   });
 };
