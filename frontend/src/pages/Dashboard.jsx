@@ -29,9 +29,9 @@ const Dashboard = () => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [selectedTable, setSelectedTable] = useState(null);
   const [showInvitations, setShowInvitations] = useState(false);
-  const [testMode, setTestMode] = useState(false);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
   const [tableCreationCount, setTableCreationCount] = useState(0);
+  // eslint-disable-next-line no-unused-vars
   const [currentSubmissionId, setCurrentSubmissionId] = useState(null);
   const [modalSubmissionInProgress, setModalSubmissionInProgress] =
     useState(false);
@@ -204,7 +204,9 @@ const Dashboard = () => {
           if (res?.success && res.user) {
             setUserProfile(res.user);
           }
-        } catch {}
+        } catch {
+          console.error("Error fetching user profile:", error);
+        }
         console.log("User registration completed, now fetching tables...");
 
         // Get user tables
@@ -519,7 +521,9 @@ const Dashboard = () => {
         if (res?.success && res.user) {
           setUserProfile(res.user);
         }
-      } catch {}
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+      }
 
       console.log("User registration ensured, creating table...");
 
@@ -616,74 +620,6 @@ const Dashboard = () => {
   const handleBackToTables = () => {
     setSelectedTable(null);
     setShowInvitations(false);
-  };
-
-  // Test function to check authentication status
-  const testBackendDirectly = async () => {
-    try {
-      console.log("Testing authentication and backend...");
-
-      // Check if user is authenticated first
-      if (!isAuthenticated) {
-        console.log("User not authenticated, cannot test backend");
-        setRecentTables([]);
-        setIsLoadingTables(false);
-        return;
-      }
-
-      // Check if Internet Identity service is available
-      const identity = internetIdentityService.getIdentity();
-      console.log("Internet Identity available:", !!identity);
-      console.log("Identity object:", identity);
-
-      if (!identity) {
-        console.log("No identity available - user not properly authenticated");
-        setRecentTables([]);
-        setIsLoadingTables(false);
-        return;
-      }
-
-      // Check if identity has required methods
-      if (typeof identity.getPrincipal !== "function") {
-        console.error("Identity object is missing getPrincipal method");
-        setRecentTables([]);
-        setIsLoadingTables(false);
-        return;
-      }
-
-      console.log("Identity principal:", identity.getPrincipal().toText());
-      console.log("Identity methods:", Object.getOwnPropertyNames(identity));
-
-      // Try to initialize services with real identity
-      await tableManagementService.initialize(identity);
-      await authenticationService.initialize(identity);
-
-      // Test getting user tables
-      const userTables = await tableManagementService.getUserTables();
-      console.log("Backend test result:", userTables);
-
-      // Set the result
-      const allTables = [
-        ...userTables.created.map((table) => ({
-          ...table,
-          timestamp: Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000,
-          lastUpdated: "Recently",
-        })),
-        ...userTables.joined.map((table) => ({
-          ...table,
-          timestamp: Date.now() - Math.random() * 14 * 24 * 60 * 60 * 1000,
-          lastUpdated: "Recently",
-        })),
-      ];
-
-      setRecentTables(allTables);
-      setIsLoadingTables(false);
-    } catch (error) {
-      console.error("Backend test failed:", error);
-      // Set empty tables to stop loading
-      setRecentTables([]);
-      setIsLoadingTables(false);
-    }
   };
 
   const handleImportFromGithub = () => {
@@ -861,84 +797,6 @@ const Dashboard = () => {
 
               {/* Main Content Area */}
               <div className={styles["workspace-content"]}>
-                {/* Debug Info */}
-                {/* <div
-                  style={{
-                    padding: "10px",
-                    background: "#f0f0f0",
-                    marginBottom: "10px",
-                    fontSize: "12px",
-                  }}
-                >
-                  Debug: isAuthenticated={isAuthenticated.toString()}, user=
-                  {user ? "yes" : "no"}, userPrincipal=
-                  {user?.principal || "none"}, isLoadingTables=
-                  {isLoadingTables.toString()}, tables={recentTables.length},
-                  creationCount={tableCreationCount}, submissionId=
-                  {currentSubmissionId}, modalSubmission=
-                  {modalSubmissionInProgress.toString()}
-                  <button
-                    onClick={() => {
-                      console.log("Manual reload triggered");
-                      loadUserTables();
-                    }}
-                    style={{ marginLeft: "10px", padding: "5px 10px" }}
-                  >
-                    Reload Tables
-                  </button>
-                  <button
-                    onClick={() => {
-                      console.log("Test mode triggered");
-                      setTestMode(!testMode);
-                    }}
-                    style={{
-                      marginLeft: "10px",
-                      padding: "5px 10px",
-                      background: testMode ? "#ff4444" : "#44ff44",
-                    }}
-                  >
-                    Test Mode: {testMode ? "ON" : "OFF"}
-                  </button>
-                  {testMode && (
-                    <>
-                      <button
-                        onClick={testBackendDirectly}
-                        style={{
-                          marginLeft: "10px",
-                          padding: "5px 10px",
-                          background: "#4444ff",
-                          color: "white",
-                        }}
-                      >
-                        Test Backend
-                      </button>
-                      <button
-                        onClick={() => {
-                          const identity =
-                            internetIdentityService.getIdentity();
-                          console.log("Identity test:", {
-                            identity: !!identity,
-                            type: typeof identity,
-                            methods: identity
-                              ? Object.getOwnPropertyNames(identity)
-                              : [],
-                            principal:
-                              identity?.getPrincipal?.()?.toText?.() || "N/A",
-                          });
-                        }}
-                        style={{
-                          marginLeft: "10px",
-                          padding: "5px 10px",
-                          background: "#ff8844",
-                          color: "white",
-                        }}
-                      >
-                        Test Identity
-                      </button>
-                    </>
-                  )}
-                </div> */}
-
                 {showInvitations ? (
                   <TableInvitations
                     onInvitationUpdate={handleInvitationUpdate}

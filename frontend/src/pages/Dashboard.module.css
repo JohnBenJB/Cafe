@@ -188,6 +188,7 @@
   display: grid;
   grid-template-rows: auto 1fr;
   overflow: hidden;
+  position: relative;
 }
 
 /* Content Header */
@@ -579,11 +580,6 @@
 .dashboard-page * {
   transition: color 0.2s ease, background-color 0.2s ease,
     border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-.dashboard-page button:focus,
-.dashboard-page input:focus {
-  outline: 2px solid #e1760c;
-  outline-offset: 2px;
 }
 
 /* Modal Styles */

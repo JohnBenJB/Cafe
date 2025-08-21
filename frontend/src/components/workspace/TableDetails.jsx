@@ -3,6 +3,7 @@ import { tableManagementService } from "../../services/tableManagement";
 import { authenticationService } from "../../services/authentication";
 import internetIdentityService from "../../services/internetIdentity";
 import "./TableDetails.css";
+import caffeineIcon from "/caffeine.jpg";
 
 const TableDetails = ({ table, onLeaveTable }) => {
   const [collaborators, setCollaborators] = useState([]);
@@ -16,6 +17,110 @@ const TableDetails = ({ table, onLeaveTable }) => {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [pendingSent, setPendingSent] = useState([]); // usernames
   const [sendingTo, setSendingTo] = useState(""); // principal currently being invited
+  const [activeSection, setActiveSection] = useState("table");
+
+  // Code editor state
+  const [files, setFiles] = useState([
+    {
+      id: 1,
+      name: "main.js",
+      content: `function helloWorld() {
+  console.log("Hello, World!");
+  
+  // This is a sample code editor
+  const greeting = "Welcome to Cafe";
+  
+  return {
+    message: greeting,
+    timestamp: new Date().toISOString()
+  };
+}
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+  helloWorld();
+});`,
+      language: "javascript",
+      isActive: true,
+    },
+    {
+      id: 2,
+      name: "index.html",
+      content: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cafe Project</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <h1>Welcome to Cafe</h1>
+        <p>Your collaborative development workspace</p>
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>`,
+      language: "html",
+      isActive: false,
+    },
+    {
+      id: 3,
+      name: "styles.css",
+      content: `/* Main styles for Cafe project */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+#app {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+h1 {
+    color: #333;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+p {
+    color: #666;
+    text-align: center;
+    font-size: 18px;
+}`,
+      language: "css",
+      isActive: false,
+    },
+  ]);
+  const [activeFileId, setActiveFileId] = useState(1);
+  const [editorContent, setEditorContent] = useState("");
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [showTerminal, setShowTerminal] = useState(true);
+  const [terminalOutput, setTerminalOutput] = useState([
+    { type: "command", content: "npm start" },
+    { type: "output", content: "Starting development server..." },
+    { type: "output", content: "Server running on http://localhost:3000" },
+  ]);
+  const [newFileName, setNewFileName] = useState("");
+  const [showNewFileModal, setShowNewFileModal] = useState(false);
+
+  // Initialize editor content when files change
+  useEffect(() => {
+    const activeFile = files.find((f) => f.id === activeFileId);
+    if (activeFile) {
+      setEditorContent(activeFile.content);
+    }
+  }, [activeFileId, files]);
 
   useEffect(() => {
     if (table) {
@@ -144,6 +249,161 @@ const TableDetails = ({ table, onLeaveTable }) => {
     }
   };
 
+  // Code editor functions
+  const handleFileSwitch = (fileId) => {
+    // Save current content
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.id === activeFileId ? { ...f, content: editorContent } : f
+      )
+    );
+
+    // Switch to new file
+    setActiveFileId(fileId);
+    setFiles((prev) => prev.map((f) => ({ ...f, isActive: f.id === fileId })));
+  };
+
+  const handleFileClose = (fileId) => {
+    if (files.length <= 1) return; // Don't close the last file
+
+    const newFiles = files.filter((f) => f.id !== fileId);
+    const newActiveFile = newFiles[0];
+
+    setFiles(
+      newFiles.map((f) => ({ ...f, isActive: f.id === newActiveFile.id }))
+    );
+    setActiveFileId(newActiveFile.id);
+  };
+
+  const handleContentChange = (e) => {
+    setEditorContent(e.target.value);
+  };
+
+  const handleSaveFile = () => {
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.id === activeFileId ? { ...f, content: editorContent } : f
+      )
+    );
+
+    // Add save notification to terminal
+    setTerminalOutput((prev) => [
+      ...prev,
+      {
+        type: "output",
+        content: `Saved ${files.find((f) => f.id === activeFileId)?.name}`,
+      },
+    ]);
+  };
+
+  const handleRunCode = () => {
+    const activeFile = files.find((f) => f.id === activeFileId);
+    if (activeFile?.language === "javascript") {
+      try {
+        // Create a safe evaluation environment
+        const result = eval(activeFile.content);
+        setTerminalOutput((prev) => [
+          ...prev,
+          { type: "command", content: `node ${activeFile.name}` },
+          { type: "output", content: "Code executed successfully" },
+          {
+            type: "output",
+            content: `Result: ${JSON.stringify(result, null, 2)}`,
+          },
+        ]);
+      } catch (error) {
+        setTerminalOutput((prev) => [
+          ...prev,
+          { type: "command", content: `node ${activeFile.name}` },
+          { type: "output", content: `Error: ${error.message}` },
+        ]);
+      }
+    } else {
+      setTerminalOutput((prev) => [
+        ...prev,
+        { type: "command", content: `open ${activeFile?.name}` },
+        {
+          type: "output",
+          content: `Opening ${activeFile?.name} in browser...`,
+        },
+      ]);
+    }
+  };
+
+  const handleNewFile = () => {
+    if (!newFileName.trim()) return;
+
+    const fileExtension = newFileName.split(".").pop().toLowerCase();
+    let language = "text";
+
+    if (fileExtension === "js") language = "javascript";
+    else if (fileExtension === "html") language = "html";
+    else if (fileExtension === "css") language = "css";
+    else if (fileExtension === "json") language = "json";
+    else if (fileExtension === "py") language = "python";
+
+    const newFile = {
+      id: Date.now(),
+      name: newFileName,
+      content: "",
+      language,
+      isActive: false,
+    };
+
+    setFiles((prev) => [...prev, newFile]);
+    setActiveFileId(newFile.id);
+    setFiles((prev) =>
+      prev.map((f) => ({ ...f, isActive: f.id === newFile.id }))
+    );
+    setNewFileName("");
+    setShowNewFileModal(false);
+  };
+
+  const getLanguageIcon = (language) => {
+    switch (language) {
+      case "javascript":
+        return "📄";
+      case "html":
+        return "🌐";
+      case "css":
+        return "🎨";
+      case "json":
+        return "📋";
+      case "python":
+        return "🐍";
+      default:
+        return "📄";
+    }
+  };
+
+  const getSyntaxHighlighting = (content, language) => {
+    // Simple syntax highlighting
+    if (language === "javascript") {
+      return content
+        .replace(
+          /\b(function|const|let|var|return|if|else|for|while|console)\b/g,
+          '<span class="keyword">$1</span>'
+        )
+        .replace(/\b(console\.log)\b/g, '<span class="function">$1</span>')
+        .replace(/"([^"]*)"/g, '<span class="string">"$1"</span>')
+        .replace(/\/\/(.*)/g, '<span class="comment">//$1</span>');
+    }
+    if (language === "html") {
+      return content
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/(&lt;[^&]*&gt;)/g, '<span class="tag">$1</span>');
+    }
+    if (language === "css") {
+      return content
+        .replace(/([a-zA-Z-]+):/g, '<span class="property">$1</span>:')
+        .replace(/(#[0-9a-fA-F]{3,6})/g, '<span class="color">$1</span>')
+        .replace(/\/\*([^*]*)\*\//g, '<span class="comment">/*$1*/</span>');
+    }
+    return content;
+  };
+
   if (isLoading) {
     return (
       <div className="table-details">
@@ -154,82 +414,211 @@ const TableDetails = ({ table, onLeaveTable }) => {
 
   return (
     <div className="table-details">
-      {/* Redesigned layout: Profile & Account style */}
-      <div className="pa-container">
-        <div className="pa-header-row">
-          <h2 className="pa-title">Profile & Account</h2>
+      {/* Navigation - Always visible */}
+      <div className="pa-bottom-nav">
+        <div className="pa-nav-pills">
+          <button
+            className={`pa-nav-pill ${
+              activeSection === "table" ? "pa-active" : ""
+            }`}
+            onClick={() => setActiveSection("table")}
+          >
+            <div className="pa-pill-icon">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 18 18"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M1 8.5H5C5.13261 8.5 5.25975 8.55272 5.35352 8.64648C5.44728 8.74025 5.5 8.86739 5.5 9V17C5.5 17.1326 5.44728 17.2597 5.35352 17.3535C5.25975 17.4473 5.13261 17.5 5 17.5H3L2.7627 17.4883C2.21174 17.4358 1.69116 17.202 1.28516 16.8193C0.822809 16.3834 0.542856 15.7874 0.503906 15.1533L0.5 14.9854V9C0.5 8.86739 0.552716 8.74025 0.646484 8.64648C0.740253 8.55272 0.867392 8.5 1 8.5ZM9 8.5H17C17.1326 8.5 17.2597 8.55272 17.3535 8.64648C17.4473 8.74025 17.5 8.86739 17.5 9V15C17.5 15.6375 17.2566 16.2509 16.8193 16.7148C16.3834 17.1772 15.7874 17.4562 15.1533 17.4951L14.9854 17.5H9C8.86739 17.5 8.74025 17.4473 8.64648 17.3535C8.55272 17.2597 8.5 17.1326 8.5 17V9C8.5 8.86739 8.55272 8.74025 8.64648 8.64648C8.74025 8.55272 8.86739 8.5 9 8.5ZM5 0.5C5.13261 0.5 5.25975 0.552716 5.35352 0.646484C5.44728 0.740253 5.5 0.867392 5.5 1V5C5.5 5.13261 5.44728 5.25975 5.35352 5.35352C5.25975 5.44728 5.13261 5.5 5 5.5H1C0.867392 5.5 0.740253 5.44728 0.646484 5.35352C0.552716 5.25975 0.5 5.13261 0.5 5V3L0.511719 2.7627C0.56421 2.21174 0.798013 1.69116 1.18066 1.28516C1.61639 0.823045 2.21196 0.543081 2.8457 0.503906L3.01465 0.5H5ZM9 0.5H15C15.6375 0.499964 16.2509 0.743444 16.7148 1.18066C17.1769 1.61638 17.4559 2.21198 17.4951 2.8457L17.5 3.01465V5C17.5 5.13261 17.4473 5.25975 17.3535 5.35352C17.2597 5.44728 17.1326 5.5 17 5.5H9C8.86739 5.5 8.74025 5.44728 8.64648 5.35352C8.55272 5.25975 8.5 5.13261 8.5 5V1C8.5 0.867392 8.55272 0.740253 8.64648 0.646484C8.74025 0.552716 8.86739 0.5 9 0.5Z"
+                  stroke="#C4C4C4"
+                />
+              </svg>
+            </div>
+            <span>Table</span>
+          </button>
+          <button
+            className={`pa-nav-pill ${
+              activeSection === "resources" ? "pa-active" : ""
+            }`}
+            onClick={() => setActiveSection("resources")}
+          >
+            <div className="pa-pill-icon">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M15.5 10.25L20 12.5L11 17L2 12.5L6.5 10.25M15.5 15.25L20 17.5L11 22L2 17.5L6.5 15.25M11 3L20 7.5L11 12L2 7.5L11 3Z"
+                  stroke="#C4C4C4"
+                  stroke-width="1.5"
+                />
+              </svg>
+            </div>
+            <span>Resources</span>
+          </button>
+          <button
+            className={`pa-nav-pill ${
+              activeSection === "code" ? "pa-active" : ""
+            }`}
+            onClick={() => setActiveSection("code")}
+          >
+            <div className="pa-pill-icon">
+              <svg
+                width="26"
+                height="19"
+                viewBox="0 0 26 19"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M15.2012 1L10.0602 18.1812"
+                  stroke="#c4c4c4"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                ></path>
+                <path
+                  d="M24.8301 9.75244C24.83 9.94753 24.7628 10.1354 24.6416 10.2847L24.5859 10.3462L18.4668 16.5103C18.3102 16.6611 18.1018 16.7445 17.8857 16.7427C17.6682 16.7408 17.459 16.653 17.3047 16.4976C17.1504 16.3421 17.0626 16.1312 17.0605 15.9106C17.0589 15.7174 17.1234 15.5301 17.2412 15.3804L17.2949 15.3188L22.6465 9.92822L22.8213 9.75244L22.6465 9.57568L17.292 4.18213C17.136 4.02491 17.048 3.81144 17.0479 3.58838C17.0479 3.36515 17.1359 3.15097 17.292 2.99365C17.448 2.83658 17.6591 2.74864 17.8789 2.74854C18.0989 2.74854 18.3107 2.83644 18.4668 2.99365L24.5859 9.15771C24.7421 9.31503 24.8301 9.52921 24.8301 9.75244Z"
+                  fill="#c4c4c4"
+                  stroke="white"
+                  stroke-width="0.5"
+                ></path>
+                <path
+                  d="M0.25 9.73853C0.250075 9.54344 0.317248 9.35552 0.438477 9.2063L0.494141 9.14478L6.61328 2.98071C6.76986 2.82984 6.97832 2.7465 7.19434 2.74829C7.41183 2.75019 7.62104 2.83793 7.77539 2.99341C7.92966 3.14884 8.01751 3.35978 8.01953 3.58032C8.0212 3.77354 7.9567 3.9609 7.83887 4.1106L7.78516 4.17212L2.43359 9.56274L2.25879 9.73853L2.43359 9.91528L7.78809 15.3088C7.94409 15.4661 8.03211 15.6795 8.03223 15.9026C8.03223 16.1258 7.94421 16.34 7.78809 16.4973C7.63207 16.6544 7.42095 16.7423 7.20117 16.7424C6.98122 16.7424 6.76939 16.6545 6.61328 16.4973L0.494141 10.3333C0.338013 10.1759 0.25 9.96176 0.25 9.73853Z"
+                  fill="#c4c4c4"
+                  stroke="white"
+                  stroke-width="0.5"
+                ></path>
+              </svg>
+            </div>
+            <span>Code</span>
+          </button>
+          <button
+            className={`pa-nav-pill ${
+              activeSection === "collab" ? "pa-active" : ""
+            }`}
+            onClick={() => setActiveSection("collab")}
+          >
+            <div className="pa-pill-icon">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M15.8335 1.66675C16.4966 1.66675 17.1324 1.93014 17.6013 2.39898C18.0701 2.86782 18.3335 3.50371 18.3335 4.16675C18.3335 4.82979 18.0701 5.46568 17.6013 5.93452C17.1324 6.40336 16.4966 6.66675 15.8335 6.66675C15.3869 6.66582 14.9486 6.54526 14.5644 6.31758L12.151 8.73092C12.379 9.1147 12.4993 9.55285 12.4993 9.99925C12.4993 10.4456 12.379 10.8838 12.151 11.2676L14.5644 13.6817C14.9487 13.4544 15.3869 13.3341 15.8335 13.3334C16.3848 13.3329 16.9208 13.5146 17.3582 13.8503C17.7955 14.186 18.1096 14.6568 18.2515 15.1895C18.3935 15.7222 18.3555 16.287 18.1432 16.7958C17.931 17.3046 17.5566 17.729 17.0781 18.0029C16.5997 18.2769 16.0441 18.385 15.4979 18.3105C14.9517 18.2359 14.4454 17.9829 14.0578 17.5908C13.6703 17.1987 13.4232 16.6895 13.3551 16.1424C13.2869 15.5954 13.4015 15.0411 13.681 14.5659L11.2669 12.1517C10.8832 12.3796 10.4452 12.4998 9.99893 12.4998C9.5527 12.4998 9.11471 12.3796 8.73102 12.1517L6.31685 14.5634C6.53685 14.9359 6.66602 15.3684 6.66602 15.8326C6.66602 16.327 6.51939 16.8104 6.24469 17.2215C5.96999 17.6326 5.57954 17.9531 5.12273 18.1423C4.66591 18.3315 4.16324 18.381 3.67829 18.2845C3.19334 18.1881 2.74788 17.95 2.39825 17.6004C2.04862 17.2507 1.81052 16.8053 1.71405 16.3203C1.61759 15.8354 1.6671 15.3327 1.85632 14.8759C2.04554 14.4191 2.36597 14.0286 2.77709 13.7539C3.18821 13.4792 3.67156 13.3326 4.16602 13.3326C4.62935 13.3326 5.06102 13.4609 5.43268 13.6801L7.84685 11.2651C7.61949 10.8817 7.49952 10.4442 7.49952 9.99841C7.49952 9.55267 7.61949 9.11515 7.84685 8.73175L5.43435 6.31842C5.05049 6.54551 4.61286 6.66578 4.16685 6.66675C3.6724 6.66675 3.18905 6.52013 2.77792 6.24542C2.3668 5.97072 2.04637 5.58027 1.85715 5.12346C1.66793 4.66664 1.61842 4.16398 1.71489 3.67902C1.81135 3.19407 2.04945 2.74861 2.39908 2.39898C2.74871 2.04935 3.19417 1.81125 3.67912 1.71479C4.16408 1.61832 4.66674 1.66783 5.12356 1.85705C5.58037 2.04627 5.97082 2.3667 6.24552 2.77782C6.52023 3.18895 6.66685 3.6723 6.66685 4.16675C6.66563 4.61283 6.54507 5.05047 6.31768 5.43425L8.73102 7.84842C9.11463 7.62046 9.55258 7.50007 9.99882 7.49993C10.4451 7.49978 10.8831 7.61987 11.2669 7.84758L13.681 5.43425C13.4542 5.0503 13.3342 4.61268 13.3335 4.16675C13.3335 3.50371 13.5969 2.86782 14.0658 2.39898C14.5346 1.93014 15.1705 1.66675 15.8335 1.66675ZM4.16685 14.5834C3.83533 14.5834 3.51739 14.7151 3.28297 14.9495C3.04855 15.184 2.91685 15.5019 2.91685 15.8334C2.91685 16.1649 3.04855 16.4829 3.28297 16.7173C3.51739 16.9517 3.83533 17.0834 4.16685 17.0834C4.49837 17.0834 4.81631 16.9517 5.05073 16.7173C5.28515 16.4829 5.41685 16.1649 5.41685 15.8334C5.41685 15.5019 5.28515 15.184 5.05073 14.9495C4.81631 14.7151 4.49837 14.5834 4.16685 14.5834ZM15.8335 14.5834C15.502 14.5834 15.1841 14.7151 14.9496 14.9495C14.7152 15.184 14.5835 15.5019 14.5835 15.8334C14.5835 16.1649 14.7152 16.4829 14.9496 16.7173C15.1841 16.9517 15.502 17.0834 15.8335 17.0834C16.165 17.0834 16.483 16.9517 16.7174 16.7173C16.9518 16.4829 17.0835 16.1649 17.0835 15.8334C17.0835 15.5019 16.9518 15.184 16.7174 14.9495C16.483 14.7151 16.165 14.5834 15.8335 14.5834ZM10.0002 8.75008C9.66866 8.75008 9.35072 8.88178 9.1163 9.1162C8.88188 9.35062 8.75018 9.66856 8.75018 10.0001C8.75018 10.3316 8.88188 10.6495 9.1163 10.884C9.35072 11.1184 9.66866 11.2501 10.0002 11.2501C10.3317 11.2501 10.6496 11.1184 10.8841 10.884C11.1185 10.6495 11.2502 10.3316 11.2502 10.0001C11.2502 9.66856 11.1185 9.35062 10.8841 9.1162C10.6496 8.88178 10.3317 8.75008 10.0002 8.75008ZM4.16685 2.91675C3.83533 2.91675 3.51739 3.04845 3.28297 3.28287C3.04855 3.51729 2.91685 3.83523 2.91685 4.16675C2.91685 4.49827 3.04855 4.81621 3.28297 5.05063C3.51739 5.28505 3.83533 5.41675 4.16685 5.41675C4.49837 5.41675 4.81631 5.28505 5.05073 5.05063C5.28515 4.81621 5.41685 4.49827 5.41685 4.16675C5.41685 3.83523 5.28515 3.51729 5.05073 3.28287C4.81631 3.04845 4.49837 2.91675 4.16685 2.91675ZM15.8335 2.91675C15.502 2.91675 15.1841 3.04845 14.9496 3.28287C14.7152 3.51729 14.5835 3.83523 14.5835 4.16675C14.5835 4.49827 14.7152 4.81621 14.9496 5.05063C15.1841 5.28505 15.502 5.41675 15.8335 5.41675C16.165 5.41675 16.483 5.28505 16.7174 5.05063C16.9518 4.81621 17.0835 4.49827 17.0835 4.16675C17.0835 3.83523 16.9518 3.51729 16.7174 3.28287C16.483 3.04845 16.165 2.91675 15.8335 2.91675Z"
+                  fill="#C4C4C4"
+                />
+              </svg>
+            </div>
+            <span>Collab</span>
+          </button>
+          <button
+            className={`pa-nav-pill ${
+              activeSection === "settings" ? "pa-active" : ""
+            }`}
+            onClick={() => setActiveSection("settings")}
+          >
+            <div className="pa-pill-icon">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2 12.8799L2 11.1199C2 10.0799 2.85 9.21994 3.9 9.21994C5.71 9.21994 6.45 7.93994 5.54 6.36994C5.02 5.46994 5.33 4.29994 6.24 3.77994L7.97 2.78994C8.76 2.31994 9.78 2.59994 10.25 3.38994L10.36 3.57994C11.26 5.14994 12.74 5.14994 13.65 3.57994L13.76 3.38994C14.23 2.59994 15.25 2.31994 16.04 2.78994L17.77 3.77994C18.68 4.29994 18.99 5.46994 18.47 6.36994C17.56 7.93994 18.3 9.21994 20.11 9.21994C21.15 9.21994 22.01 10.0699 22.01 11.1199V12.8799C22.01 13.9199 21.16 14.7799 20.11 14.7799C18.3 14.7799 17.56 16.0599 18.47 17.6299C18.99 18.5399 18.68 19.6999 17.77 20.2199L16.04 21.2099C15.25 21.6799 14.23 21.3999 13.76 20.6099L13.65 20.4199C12.75 18.8499 11.27 18.8499 10.36 20.4199L10.25 20.6099C9.78 21.3999 8.76 21.6799 7.97 21.2099L6.24 20.2199C5.33 19.6999 5.02 18.5299 5.54 17.6299C6.45 16.0599 5.71 14.7799 3.9 14.7799C2.85 14.7799 2 13.9199 2 12.8799Z"
+                  fill="white"
+                  stroke="#C4C4C4"
+                  stroke-width="1.5"
+                  stroke-miterlimit="10"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
+                  stroke="#C4C4C4"
+                  stroke-width="1.5"
+                  stroke-miterlimit="10"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </div>
+            <span>Settings</span>
+          </button>
         </div>
-        <div className="pa-grid">
-          <div className="pa-left">
-            <div className="pa-picture-card">
-              <div className="pa-picture">
-                {table?.title?.charAt(0)?.toUpperCase() || "T"}
-              </div>
-              <div className="pa-picture-edit" title="Change picture">
-                ✎
-              </div>
-            </div>
-            <div className="pa-name-row">
-              <div className="pa-name-label">Name:</div>
-              <div className="pa-name-value">{table?.title || "Untitled"}</div>
-            </div>
-            <div className="pa-id-row">
-              <div className="pa-id-label">Unique ID:</div>
-              <div className="pa-id-value">{String(table?.id)}</div>
-            </div>
-          </div>
-          <div className="pa-right">
-            <div className="pa-description">
-              <div className="pa-section-title">Description</div>
-              <div className="pa-description-body">
-                {table?.description ||
-                  "No description provided for this table."}
-              </div>
-            </div>
-            <div className="pa-connected">
-              <div className="pa-section-title">Connected Accounts</div>
-              <div className="pa-connected-item">
-                <div className="pa-connected-label">Github Integration:</div>
-                <button className="pa-connected-status pa-disabled" disabled>
-                  Not connected
-                </button>
-              </div>
-              <div className="pa-connected-item">
-                <div className="pa-connected-label">Other Integration:</div>
-                <button className="pa-connected-status pa-disabled" disabled>
-                  Not connected
-                </button>
-              </div>
-            </div>
-            <div className="pa-ai">
-              <div className="pa-section-title">AI</div>
-              <div className="pa-ai-item">Caffeine ai</div>
-            </div>
-          </div>
+        <div className="pa-cafe-icon">
+          <img src={caffeineIcon} alt="caffeine icon" />
         </div>
-        <div className="pa-bottom-spacer"></div>
-        <nav
-          className="pa-bottom-bar"
-          role="tablist"
-          aria-label="Table sections"
-        >
-          <button className="pa-pill pa-active" role="tab" aria-selected="true">
-            Table
-          </button>
-          <button className="pa-pill" role="tab" aria-selected="false">
-            Resources
-          </button>
-          <button className="pa-pill" role="tab" aria-selected="false">
-            Code
-          </button>
-          <button className="pa-pill" role="tab" aria-selected="false">
-            Collab
-          </button>
-          <button className="pa-pill" role="tab" aria-selected="false">
-            Settings
-          </button>
-        </nav>
       </div>
+
+      {/* Profile & Account Container - Only show in table tab */}
+      {activeSection === "table" && (
+        <div className="pa-container">
+          <div className="pa-header-row">
+            <h2 className="pa-title">Profile & Account</h2>
+          </div>
+          <div className="pa-grid">
+            <div className="pa-left">
+              <div className="pa-picture-card">
+                <div className="pa-picture">
+                  {table?.title?.charAt(0)?.toUpperCase() || "T"}
+                </div>
+                <div className="pa-picture-edit" title="Change picture">
+                  ✎
+                </div>
+              </div>
+              <div className="pa-name-row">
+                <div className="pa-name-label">Name:</div>
+                <div className="pa-name-value">
+                  {table?.title || "Untitled"}
+                </div>
+              </div>
+              <div className="pa-id-row">
+                <div className="pa-id-label">Unique ID:</div>
+                <div className="pa-id-value">{String(table?.id)}</div>
+              </div>
+            </div>
+            <div className="pa-right">
+              <div className="pa-description">
+                <div className="pa-section-title">Description</div>
+                <div className="pa-description-body">
+                  {table?.description ||
+                    "No description provided for this table."}
+                </div>
+              </div>
+              <div className="pa-connected">
+                <div className="pa-section-title">Connected Accounts</div>
+                <div className="pa-connected-item">
+                  <div className="pa-connected-label">Github Integration:</div>
+                  <button className="pa-connected-status pa-disabled" disabled>
+                    Not connected
+                  </button>
+                </div>
+                <div className="pa-connected-item">
+                  <div className="pa-connected-label">Other Integration:</div>
+                  <button className="pa-connected-status pa-disabled" disabled>
+                    Not connected
+                  </button>
+                </div>
+              </div>
+              <div className="pa-ai">
+                <div className="pa-section-title">AI</div>
+                <div className="pa-ai-item">Caffeine ai</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="table-header">
         <h2>{table.title}</h2>
@@ -250,44 +639,6 @@ const TableDetails = ({ table, onLeaveTable }) => {
 
       <div className="table-description">
         <p>{table.description}</p>
-      </div>
-
-      <div className="table-info">
-        <div className="info-item">
-          <span className="info-label">Table ID:</span>
-          <span className="info-value">{table.id}</span>
-        </div>
-        <div className="info-item">
-          <span className="info-label">Created by:</span>
-          <span className="info-value">
-            {collaborators.find((c) => c.principal === table.creator)
-              ?.username || "Unknown"}
-          </span>
-        </div>
-        <div className="info-item">
-          <span className="info-label">Collaborators:</span>
-          <span className="info-value">{collaborators.length}</span>
-        </div>
-      </div>
-
-      <div className="collaborators-section">
-        <h3>Collaborators</h3>
-        <div className="collaborators-list">
-          {collaborators.map((collaborator) => (
-            <div key={collaborator.principal} className="collaborator-item">
-              <div className="collaborator-avatar">
-                {collaborator.username.charAt(0).toUpperCase()}
-              </div>
-              <div className="collaborator-info">
-                <div className="collaborator-name">{collaborator.username}</div>
-                <div className="collaborator-email">{collaborator.email}</div>
-                {collaborator.principal === table.creator && (
-                  <div className="creator-badge">Creator</div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {isCreator && (
@@ -344,6 +695,332 @@ const TableDetails = ({ table, onLeaveTable }) => {
           </div>
         </div>
       )}
+
+      {/* Content Sections */}
+      <div className="pa-content-sections">
+        {activeSection === "table" && (
+          <div className="pa-section-content">
+            <h3>Table Overview</h3>
+            <div className="table-info">
+              <div className="info-item">
+                <span className="info-label">Table ID:</span>
+                <span className="info-value">{table.id}</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Created by:</span>
+                <span className="info-value">
+                  {collaborators.find((c) => c.principal === table.creator)
+                    ?.username || "Unknown"}
+                </span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Collaborators:</span>
+                <span className="info-value">{collaborators.length}</span>
+              </div>
+            </div>
+
+            <div className="collaborators-section">
+              <h3>Collaborators</h3>
+              <div className="collaborators-list">
+                {collaborators.map((collaborator) => (
+                  <div
+                    key={collaborator.principal}
+                    className="collaborator-item"
+                  >
+                    <div className="collaborator-avatar">
+                      {collaborator.username.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="collaborator-info">
+                      <div className="collaborator-name">
+                        {collaborator.username}
+                      </div>
+                      <div className="collaborator-email">
+                        {collaborator.email}
+                      </div>
+                      {collaborator.principal === table.creator && (
+                        <div className="creator-badge">Creator</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSection === "resources" && (
+          <div className="pa-section-content">
+            <h3>Resources</h3>
+            <div className="resources-grid">
+              <div className="resource-card">
+                <div className="resource-icon">📁</div>
+                <h4>Project Files</h4>
+                <p>Manage your project files and assets</p>
+              </div>
+              <div className="resource-card">
+                <div className="resource-icon">🔗</div>
+                <h4>External Links</h4>
+                <p>Store important links and references</p>
+              </div>
+              <div className="resource-card">
+                <div className="resource-icon">📊</div>
+                <h4>Data Sources</h4>
+                <p>Connect to databases and APIs</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSection === "code" && (
+          <div className="pa-section-content">
+            <div className="code-editor-container">
+              <div className="editor-header">
+                <div className="file-tabs">
+                  {files.map((file) => (
+                    <div
+                      key={file.id}
+                      className={`file-tab ${file.isActive ? "active" : ""}`}
+                      onClick={() => handleFileSwitch(file.id)}
+                    >
+                      <span className="file-icon">
+                        {getLanguageIcon(file.language)}
+                      </span>
+                      <span className="file-name">{file.name}</span>
+                      <button
+                        className="file-close"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFileClose(file.id);
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    className="file-tab new-file"
+                    onClick={() => setShowNewFileModal(true)}
+                  >
+                    <span className="file-icon">+</span>
+                    <span className="file-name">New File</span>
+                  </button>
+                </div>
+                <div className="editor-controls">
+                  <button
+                    className="control-btn"
+                    onClick={handleSaveFile}
+                    title="Save"
+                  >
+                    💾
+                  </button>
+                  <button
+                    className="control-btn"
+                    onClick={handleRunCode}
+                    title="Run"
+                  >
+                    ▶
+                  </button>
+                  <button
+                    className="control-btn"
+                    onClick={() => setShowSidebar(!showSidebar)}
+                    title="Toggle Sidebar"
+                  >
+                    📁
+                  </button>
+                  <button
+                    className="control-btn"
+                    onClick={() => setShowTerminal(!showTerminal)}
+                    title="Toggle Terminal"
+                  >
+                    💻
+                  </button>
+                </div>
+              </div>
+              <div className="editor-layout">
+                {showSidebar && (
+                  <div className="editor-sidebar">
+                    <div className="sidebar-section">
+                      <div className="sidebar-header">
+                        EXPLORER
+                        <button
+                          className="new-file-btn"
+                          onClick={() => setShowNewFileModal(true)}
+                          title="New File"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="file-tree">
+                        {files.map((file) => (
+                          <div
+                            key={file.id}
+                            className={`file-item ${
+                              file.isActive ? "active" : ""
+                            }`}
+                            onClick={() => handleFileSwitch(file.id)}
+                          >
+                            <span className="file-icon">
+                              {getLanguageIcon(file.language)}
+                            </span>
+                            <span>{file.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="editor-main">
+                  <div className="line-numbers">
+                    {editorContent.split("\n").map((_, i) => (
+                      <div key={i} className="line-number">
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="code-content">
+                    <textarea
+                      className="code-textarea"
+                      value={editorContent}
+                      onChange={handleContentChange}
+                      spellCheck={false}
+                      placeholder="Start coding..."
+                    />
+                    <div
+                      className="code-highlight"
+                      dangerouslySetInnerHTML={{
+                        __html: getSyntaxHighlighting(
+                          editorContent,
+                          files.find((f) => f.id === activeFileId)?.language ||
+                            "text"
+                        ),
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              {showTerminal && (
+                <div className="editor-terminal">
+                  <div className="terminal-header">
+                    <span>Terminal</span>
+                    <button
+                      className="terminal-close"
+                      onClick={() => setShowTerminal(false)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="terminal-content">
+                    {terminalOutput.map((output, index) => (
+                      <div
+                        key={index}
+                        className={`terminal-line ${output.type}`}
+                      >
+                        {output.type === "command" && (
+                          <>
+                            <span className="terminal-prompt">$</span>
+                            <span className="terminal-command">
+                              {output.content}
+                            </span>
+                          </>
+                        )}
+                        {output.type === "output" && (
+                          <span className="terminal-output">
+                            {output.content}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* New File Modal */}
+            {showNewFileModal && (
+              <div
+                className="modal-overlay"
+                onClick={() => setShowNewFileModal(false)}
+              >
+                <div
+                  className="modal-content"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3>Create New File</h3>
+                  <input
+                    type="text"
+                    placeholder="filename.js, filename.html, etc."
+                    value={newFileName}
+                    onChange={(e) => setNewFileName(e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && handleNewFile()}
+                    autoFocus
+                  />
+                  <div className="modal-actions">
+                    <button onClick={() => setShowNewFileModal(false)}>
+                      Cancel
+                    </button>
+                    <button onClick={handleNewFile} className="primary">
+                      Create
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeSection === "collab" && (
+          <div className="pa-section-content">
+            <h3>Collaboration</h3>
+            <div className="collab-features">
+              <div className="collab-card">
+                <div className="collab-icon">👥</div>
+                <h4>Real-time Chat</h4>
+                <p>Chat with your team members</p>
+              </div>
+              <div className="collab-card">
+                <div className="collab-icon">🖱️</div>
+                <h4>Live Cursors</h4>
+                <p>See who's working where</p>
+              </div>
+              <div className="collab-card">
+                <div className="collab-icon">📝</div>
+                <h4>Shared Notes</h4>
+                <p>Collaborative note-taking</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSection === "settings" && (
+          <div className="pa-section-content">
+            <h3>Settings</h3>
+            <div className="settings-grid">
+              <div className="setting-card">
+                <h4>Table Settings</h4>
+                <div className="setting-item">
+                  <label>Table Name</label>
+                  <input type="text" value={table.title} readOnly />
+                </div>
+                <div className="setting-item">
+                  <label>Description</label>
+                  <textarea value={table.description} readOnly />
+                </div>
+              </div>
+              <div className="setting-card">
+                <h4>Permissions</h4>
+                <div className="setting-item">
+                  <label>Public Access</label>
+                  <input type="checkbox" />
+                </div>
+                <div className="setting-item">
+                  <label>Allow Invites</label>
+                  <input type="checkbox" defaultChecked />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
