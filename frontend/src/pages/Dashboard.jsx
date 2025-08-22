@@ -353,7 +353,7 @@ const Dashboard = () => {
     // Always force reload tables when landing on dashboard after auth
     if (!isLoadingTables) {
       setHasAttemptedLoad(true);
-      loadUserTables(true);
+      loadUserTables(true); // Force reload to get latest state
     }
 
     // Always reload users as well
@@ -369,6 +369,31 @@ const Dashboard = () => {
     }, 250);
     return () => clearTimeout(t);
   }, [isAuthenticated]);
+
+  // Refresh tables when user returns to the dashboard tab
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isAuthenticated && !isLoadingTables) {
+        console.log("Dashboard tab became visible, refreshing tables");
+        loadUserTables(true); // Force reload to get latest state
+      }
+    };
+
+    const handleFocus = () => {
+      if (isAuthenticated && !isLoadingTables) {
+        console.log("Dashboard window focused, refreshing tables");
+        loadUserTables(true); // Force reload to get latest state
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [isAuthenticated, isLoadingTables, loadUserTables]);
 
   // Reset loading state when user changes
   useEffect(() => {
@@ -609,7 +634,8 @@ const Dashboard = () => {
   };
 
   const handleInvitationUpdate = () => {
-    loadUserTables();
+    // Refresh tables when invitations are updated
+    loadUserTables(true);
   };
 
   const handleLeaveTable = () => {
@@ -620,6 +646,8 @@ const Dashboard = () => {
   const handleBackToTables = () => {
     setSelectedTable(null);
     setShowInvitations(false);
+    // Force reload tables when returning to main view to ensure latest state
+    loadUserTables(true);
   };
 
   const handleImportFromGithub = () => {
@@ -868,7 +896,50 @@ const Dashboard = () => {
 
                     {/* Tables Section */}
                     <section className={styles["recent-tables-section"]}>
-                      <h2 className={styles["section-title"]}>Your Tables</h2>
+                      <div className={styles["section-header"]}>
+                        <h2 className={styles["section-title"]}>Your Tables</h2>
+                        <button
+                          onClick={() => loadUserTables(true)}
+                          disabled={isLoadingTables}
+                          className={styles["refresh-btn"]}
+                          title="Refresh tables to get latest state"
+                        >
+                          {isLoadingTables ? (
+                            <svg
+                              className={styles["loading-spinner"]}
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                              <path d="M21 3v5h-5" />
+                              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                              <path d="M3 21v-5h5" />
+                            </svg>
+                          ) : (
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                              <path d="M21 3v5h-5" />
+                              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                              <path d="M3 21v-5h5" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                       <div className={styles["tables-grid"]}>
                         {isLoadingTables ? (
                           <div style={{ padding: "20px", textAlign: "center" }}>

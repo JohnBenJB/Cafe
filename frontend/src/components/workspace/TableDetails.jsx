@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { tableManagementService } from "../../services/tableManagement";
 import { authenticationService } from "../../services/authentication";
 import internetIdentityService from "../../services/internetIdentity";
@@ -19,86 +19,238 @@ const TableDetails = ({ table, onLeaveTable }) => {
   const [sendingTo, setSendingTo] = useState(""); // principal currently being invited
   const [activeSection, setActiveSection] = useState("table");
 
+  // Chat auto-scroll refs
+  const messagesContainerRef = useRef(null);
+  const messagesEndRef = useRef(null);
+
+  // Auto-scroll to bottom of chat
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   // Code editor state
   const [files, setFiles] = useState([
     {
       id: 1,
       name: "main.js",
-      content: `function helloWorld() {
-  console.log("Hello, World!");
-  
-  // This is a sample code editor
-  const greeting = "Welcome to Cafe";
-  
-  return {
-    message: greeting,
-    timestamp: new Date().toISOString()
-  };
-}
+      content: `// Main application entry point
+import React from 'react';
+import ReactDOM from 'react-dom';
+import App from './App';
 
 // Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
-  helloWorld();
-});`,
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+// Development server configuration
+if (process.env.NODE_ENV === 'development') {
+  console.log('Development mode enabled');
+  console.log('Hot reload active');
+}`,
       language: "javascript",
       isActive: true,
     },
     {
       id: 2,
-      name: "index.html",
-      content: `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cafe Project</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div id="app">
+      name: "App.jsx",
+      content: `import React, { useState, useEffect } from 'react';
+import './App.css';
+
+function App() {
+  const [count, setCount] = useState(0);
+  const [theme, setTheme] = useState('light');
+
+  useEffect(() => {
+    document.title = \`Count: \${count}\`;
+  }, [count]);
+
+  const handleIncrement = () => {
+    setCount(prev => prev + 1);
+  };
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  return (
+    <div className={\`App \${theme}\`}>
+      <header className="App-header">
         <h1>Welcome to Cafe</h1>
         <p>Your collaborative development workspace</p>
+        <div className="counter-section">
+          <p>Count: {count}</p>
+          <button onClick={handleIncrement}>
+            Increment
+          </button>
+        </div>
+        <button onClick={toggleTheme}>
+          Toggle Theme
+        </button>
+      </header>
     </div>
-    <script src="main.js"></script>
-</body>
-</html>`,
-      language: "html",
+  );
+}
+
+export default App;`,
+      language: "javascript",
       isActive: false,
     },
     {
       id: 3,
-      name: "styles.css",
-      content: `/* Main styles for Cafe project */
-
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    padding: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
+      name: "App.css",
+      content: `/* Main application styles */
+.App {
+  text-align: center;
+  min-height: 100vh;
+  transition: all 0.3s ease;
 }
 
-#app {
-    max-width: 800px;
-    margin: 0 auto;
-    background: white;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+.App.light {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #333;
+}
+
+.App.dark {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  color: #ecf0f1;
+}
+
+.App-header {
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
 }
 
 h1 {
-    color: #333;
-    text-align: center;
-    margin-bottom: 20px;
+  font-size: 3rem;
+  margin-bottom: 20px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
 }
 
 p {
-    color: #666;
-    text-align: center;
-    font-size: 18px;
+  font-size: 1.2rem;
+  margin-bottom: 30px;
+  opacity: 0.9;
+}
+
+.counter-section {
+  margin: 30px 0;
+  padding: 20px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+button {
+  padding: 12px 24px;
+  margin: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #007bff;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }`,
       language: "css",
+      isActive: false,
+    },
+    {
+      id: 4,
+      name: "package.json",
+      content: `{
+  "name": "cafe-project",
+  "version": "1.0.0",
+  "description": "Collaborative development workspace",
+  "main": "index.js",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}`,
+      language: "json",
+      isActive: false,
+    },
+    {
+      id: 5,
+      name: "README.md",
+      content: `# Cafe Project
+
+A collaborative development workspace built with React.
+
+## Features
+
+- **Real-time Collaboration**: Work together with team members
+- **Code Editor**: Integrated VS Code-like editor
+- **File Management**: Organize and manage project files
+- **Live Preview**: See changes in real-time
+- **Version Control**: Track changes and collaborate
+
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies: \`npm install\`
+3. Start development server: \`npm start\`
+4. Open [http://localhost:3000](http://localhost:3000)
+
+## Project Structure
+
+\`\`\`
+src/
+├── components/     # React components
+├── styles/        # CSS and styling
+├── utils/         # Utility functions
+└── App.jsx        # Main application
+\`\`\`
+
+## Contributing
+
+1. Fork the project
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
+
+## License
+
+MIT License - see LICENSE file for details`,
+      language: "markdown",
       isActive: false,
     },
   ]);
@@ -114,21 +266,41 @@ p {
   const [newFileName, setNewFileName] = useState("");
   const [showNewFileModal, setShowNewFileModal] = useState(false);
 
-  // Initialize editor content when files change
-  useEffect(() => {
-    const activeFile = files.find((f) => f.id === activeFileId);
-    if (activeFile) {
-      setEditorContent(activeFile.content);
-    }
-  }, [activeFileId, files]);
+  // Chat interface state
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      author: "WarMachine",
+      content: "Joined #frontend-devs",
+      timestamp: "8:42pm",
+      date: "Saturday, August 16th",
+      type: "system",
+    },
+    {
+      id: 2,
+      author: "WarMachine",
+      content: "Hiii",
+      timestamp: "8:42pm",
+      date: "Today",
+      type: "message",
+    },
+  ]);
+  const [newMessage, setNewMessage] = useState("");
+  const [activeTab, setActiveTab] = useState("message");
+  const [showComingSoon, setShowComingSoon] = useState(false);
+  const [showInviteOverlay, setShowInviteOverlay] = useState(false);
+  const [loadingStates, setLoadingStates] = useState({
+    deleteTable: false,
+    leaveTable: false,
+    reloadTable: false,
+  });
 
+  // Auto-scroll when messages change
   useEffect(() => {
-    if (table) {
-      loadTableDetails();
-    }
-  }, [table]);
+    scrollToBottom();
+  }, [messages]);
 
-  const loadTableDetails = async () => {
+  const loadTableDetails = useCallback(async () => {
     try {
       setIsLoading(true);
       const identity = internetIdentityService.getIdentity();
@@ -168,7 +340,58 @@ p {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [table?.id]);
+
+  // Reload current section state
+  const reloadCurrentSection = useCallback(async () => {
+    try {
+      setLoadingStates((prev) => ({ ...prev, reloadTable: true }));
+      switch (activeSection) {
+        case "table":
+          await loadTableDetails();
+          break;
+        case "collab":
+          // Reload chat messages or any collab-specific data
+          break;
+        case "code":
+          // Reload code editor state if needed
+          break;
+        case "resources":
+          // Reload resources if needed
+          break;
+        case "settings":
+          await loadTableDetails();
+          break;
+        default:
+          break;
+      }
+    } catch (error) {
+      console.error("Error reloading section:", error);
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, reloadTable: false }));
+    }
+  }, [activeSection, loadTableDetails]);
+
+  // Initialize editor content when files change
+  useEffect(() => {
+    const activeFile = files.find((f) => f.id === activeFileId);
+    if (activeFile) {
+      setEditorContent(activeFile.content);
+    }
+  }, [activeFileId, files]);
+
+  useEffect(() => {
+    if (table) {
+      loadTableDetails();
+    }
+  }, [loadTableDetails, table]);
+
+  // Reload section when activeSection changes
+  useEffect(() => {
+    if (table) {
+      reloadCurrentSection();
+    }
+  }, [activeSection, reloadCurrentSection, table]);
 
   const handleLeaveTable = async () => {
     if (!window.confirm("Are you sure you want to leave this table?")) {
@@ -176,13 +399,18 @@ p {
     }
 
     try {
+      setLoadingStates((prev) => ({ ...prev, leaveTable: true }));
       await tableManagementService.leaveTable(table.id);
+      // Reload current state before leaving
+      await loadTableDetails();
       if (onLeaveTable) {
         onLeaveTable();
       }
     } catch (error) {
       console.error("Error leaving table:", error);
       setError(error.message);
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, leaveTable: false }));
     }
   };
 
@@ -196,17 +424,126 @@ p {
     }
 
     try {
+      setLoadingStates((prev) => ({ ...prev, deleteTable: true }));
       await tableManagementService.deleteTable(table.id);
+      // Reload current state before leaving
+      await loadTableDetails();
       if (onLeaveTable) {
         onLeaveTable();
       }
     } catch (error) {
       console.error("Error deleting table:", error);
       setError(error.message);
+    } finally {
+      setLoadingStates((prev) => ({ ...prev, deleteTable: false }));
     }
   };
 
-  const isCreator = currentUser && table.creator === currentUser.principal;
+  // Debug logging to check the values
+  console.log("Debug isCreator:", {
+    currentUser,
+    currentUserPrincipal: currentUser?.principal,
+    tableCreator: table.creator,
+    tableCreatorType: typeof table.creator,
+    currentUserPrincipalType: typeof currentUser?.principal,
+    isEqual: currentUser?.principal === table.creator,
+    isEqualString: String(currentUser?.principal) === String(table.creator),
+  });
+
+  const isCreator =
+    currentUser &&
+    (currentUser.principal === table.creator ||
+      String(currentUser.principal) === String(table.creator));
+
+  // Chat functions
+  const handleSendMessage = () => {
+    if (newMessage.trim()) {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      const newMsg = {
+        id: Date.now(),
+        author: "WarMachine",
+        content: newMessage.trim(),
+        timestamp: timeString,
+        date: "Today",
+        type: "message",
+      };
+
+      setMessages((prev) => [...prev, newMsg]);
+      setNewMessage("");
+
+      // Auto-scroll to bottom after adding new message
+      setTimeout(scrollToBottom, 100);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  // Button functionality functions
+  const handleComingSoon = () => {
+    setShowComingSoon(true);
+    setTimeout(() => setShowComingSoon(false), 3000);
+  };
+
+  const handleInviteMembers = () => {
+    console.log("Opening invite members modal");
+    handleComingSoon();
+  };
+
+  const handleAddHandbook = () => {
+    console.log("Adding project handbook");
+    handleComingSoon();
+  };
+
+  const handleWelcomeMessage = () => {
+    console.log("Setting welcome message");
+    handleComingSoon();
+  };
+
+  const handleFormatText = (format) => {
+    console.log(`Applying format: ${format}`);
+    handleComingSoon();
+  };
+
+  const handleMention = () => {
+    console.log("Opening mention picker");
+    handleComingSoon();
+  };
+
+  const handleEmoji = () => {
+    console.log("Opening emoji picker");
+    handleComingSoon();
+  };
+
+  const handleFileUpload = () => {
+    console.log("Opening file upload");
+    handleComingSoon();
+  };
+
+  const handleVoiceMessage = () => {
+    console.log("Starting voice recording");
+    handleComingSoon();
+  };
+
+  const handleChannelMenu = () => {
+    console.log("Opening channel menu");
+    handleComingSoon();
+  };
+
+  const handleAddChannel = () => {
+    console.log("Adding new channel");
+    handleComingSoon();
+  };
 
   const filteredInvitees = inviteSearch.trim()
     ? allUsers
@@ -241,6 +578,9 @@ p {
         prev.includes(username) ? prev : [...prev, username]
       );
       setInviteSearch("");
+
+      // Reload current state
+      await loadTableDetails();
     } catch (e) {
       setError(e?.message || "Failed to send invitation");
     } finally {
@@ -362,13 +702,17 @@ p {
   const getLanguageIcon = (language) => {
     switch (language) {
       case "javascript":
-        return "📄";
+        return "🔷";
+      case "jsx":
+        return "⚛️";
       case "html":
         return "🌐";
       case "css":
         return "🎨";
       case "json":
         return "📋";
+      case "markdown":
+        return "📝";
       case "python":
         return "🐍";
       default:
@@ -377,29 +721,70 @@ p {
   };
 
   const getSyntaxHighlighting = (content, language) => {
-    // Simple syntax highlighting
-    if (language === "javascript") {
+    // Enhanced syntax highlighting
+    if (language === "javascript" || language === "jsx") {
       return content
         .replace(
-          /\b(function|const|let|var|return|if|else|for|while|console)\b/g,
+          /\b(function|const|let|var|return|if|else|for|while|console|import|export|from|default|useState|useEffect|React|useRef|useCallback|useMemo)\b/g,
           '<span class="keyword">$1</span>'
         )
-        .replace(/\b(console\.log)\b/g, '<span class="function">$1</span>')
+        .replace(
+          /\b(console\.log|console\.error|console\.warn)\b/g,
+          '<span class="function">$1</span>'
+        )
+        .replace(/\b(\w+)\(/g, '<span class="function">$1</span>(')
         .replace(/"([^"]*)"/g, '<span class="string">"$1"</span>')
-        .replace(/\/\/(.*)/g, '<span class="comment">//$1</span>');
+        .replace(/'([^']*)'/g, "<span class=\"string\">'$1'</span>")
+        .replace(/`([^`]*)`/g, '<span class="string">`$1`</span>')
+        .replace(/\/\/(.*)/g, '<span class="comment">//$1</span>')
+        .replace(/\/\*([^*]*)\*\//g, '<span class="comment">/*$1*/</span>')
+        .replace(/\b(\d+\.?\d*)\b/g, '<span class="number">$1</span>')
+        .replace(
+          /\b(true|false|null|undefined)\b/g,
+          '<span class="boolean">$1</span>'
+        );
     }
     if (language === "html") {
       return content
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/(&lt;[^&]*&gt;)/g, '<span class="tag">$1</span>');
+        .replace(/(&lt;[^&]*&gt;)/g, '<span class="tag">$1</span>')
+        .replace(/(&lt;\/[^&]*&gt;)/g, '<span class="tag">$1</span>')
+        .replace(/(&lt;[^&]*\s+[^&]*&gt;)/g, '<span class="tag">$1</span>');
     }
     if (language === "css") {
       return content
         .replace(/([a-zA-Z-]+):/g, '<span class="property">$1</span>:')
         .replace(/(#[0-9a-fA-F]{3,6})/g, '<span class="color">$1</span>')
-        .replace(/\/\*([^*]*)\*\//g, '<span class="comment">/*$1*/</span>');
+        .replace(/(rgb\([^)]*\))/g, '<span class="color">$1</span>')
+        .replace(/(rgba\([^)]*\))/g, '<span class="color">$1</span>')
+        .replace(
+          /(\d+px|\d+em|\d+rem|\d+%|\d+vh|\d+vw)/g,
+          '<span class="number">$1</span>'
+        )
+        .replace(/\/\*([^*]*)\*\//g, '<span class="comment">/*$1*/</span>')
+        .replace(/([a-zA-Z-]+)\s*\{/g, '<span class="selector">$1</span> {');
+    }
+    if (language === "json") {
+      return content
+        .replace(/"([^"]+)":/g, '<span class="property">"$1"</span>:')
+        .replace(/"([^"]*)"/g, '<span class="string">"$1"</span>')
+        .replace(/\b(\d+\.?\d*)\b/g, '<span class="number">$1</span>')
+        .replace(/\b(true|false|null)\b/g, '<span class="boolean">$1</span>');
+    }
+    if (language === "markdown") {
+      return content
+        .replace(/^#\s+(.+)$/gm, '<span class="keyword"># $1</span>')
+        .replace(/^##\s+(.+)$/gm, '<span class="keyword">## $1</span>')
+        .replace(/^###\s+(.+)$/gm, '<span class="keyword">### $1</span>')
+        .replace(/\*\*([^*]+)\*\*/g, '<span class="keyword">**$1**</span>')
+        .replace(/\*([^*]+)\*/g, '<span class="keyword">*$1*</span>')
+        .replace(/`([^`]+)`/g, '<span class="string">`$1`</span>')
+        .replace(
+          /\[([^\]]+)\]\(([^)]+)\)/g,
+          '<span class="string">[$1]($2)</span>'
+        );
     }
     return content;
   };
@@ -620,87 +1005,136 @@ p {
         </div>
       )}
 
-      <div className="table-header">
-        <h2>{table.title}</h2>
-        <div className="table-actions">
-          {isCreator ? (
-            <button onClick={handleDeleteTable} className="delete-btn">
-              Delete Table
-            </button>
-          ) : (
-            <button onClick={handleLeaveTable} className="leave-btn">
-              Leave Table
-            </button>
-          )}
-        </div>
-      </div>
-
-      {error && <div className="error-message">{error}</div>}
-
-      <div className="table-description">
-        <p>{table.description}</p>
-      </div>
-
-      {isCreator && (
-        <div className="invite-section">
-          <h3>Invite collaborators</h3>
-
-          <div className="invite-input-row">
-            <input
-              type="text"
-              value={inviteSearch}
-              onChange={(e) => setInviteSearch(e.target.value)}
-              placeholder="Search by username, email, GitHub, or Principal ID"
-              className="invite-input"
-            />
-          </div>
-
-          {inviteSearch.trim() !== "" && (
-            <div className="invite-results">
-              {filteredInvitees.length === 0 ? (
-                <div className="invite-empty">No users found.</div>
+      {/* Table Header and Description - Only show in table tab */}
+      {activeSection === "table" && (
+        <>
+          <div className="table-header">
+            <h2>{table.title}</h2>
+            <div className="table-actions">
+              {isCreator && (
+                <button
+                  onClick={() => setShowInviteOverlay(true)}
+                  className="invite-btn"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M8 1v14M1 8h14"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  Invite
+                </button>
+              )}
+              {isCreator ? (
+                <button
+                  onClick={handleDeleteTable}
+                  className="delete-btn"
+                  disabled={loadingStates.deleteTable}
+                >
+                  {loadingStates.deleteTable ? (
+                    <>
+                      <svg
+                        className="loading-spinner"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <path
+                          d="M8 1a7 7 0 0 0-7 7h2a5 5 0 1 1 5 5v2a7 7 0 0 0 0-14z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete Table"
+                  )}
+                </button>
               ) : (
-                filteredInvitees.slice(0, 8).map((u) => (
-                  <div key={u.principal} className="invite-result-item">
-                    <div className="invite-result-info">
-                      <div className="invite-result-name">{u.username}</div>
-                      <div className="invite-result-email">{u.email}</div>
-                    </div>
-                    <button
-                      className="invite-send-btn"
-                      disabled={inviteLoading || sendingTo === u.principal}
-                      onClick={() => handleSendInvite(u)}
-                    >
-                      {sendingTo === u.principal ? "Sending..." : "Invite"}
-                    </button>
-                  </div>
-                ))
+                <button
+                  onClick={handleLeaveTable}
+                  className="leave-btn"
+                  disabled={loadingStates.leaveTable}
+                >
+                  {loadingStates.leaveTable ? (
+                    <>
+                      <svg
+                        className="loading-spinner"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <path
+                          d="M8 1a7 7 0 0 0-7 7h2a5 5 0 1 1 5 5v2a7 7 0 0 0 0-14z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                      Leaving...
+                    </>
+                  ) : (
+                    "Leave Table"
+                  )}
+                </button>
               )}
             </div>
-          )}
-
-          <div className="pending-section">
-            <h4>Pending invites</h4>
-            {pendingSent.length === 0 ? (
-              <div className="invite-empty">No pending invites.</div>
-            ) : (
-              <ul className="pending-list">
-                {pendingSent.map((name, idx) => (
-                  <li key={`${name}-${idx}`} className="pending-item">
-                    <span className="pending-name">{name}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
-        </div>
+          {console.log(error)}
+          {/* {error && <div className="error-message">{error}</div>} */}
+        </>
       )}
 
       {/* Content Sections */}
       <div className="pa-content-sections">
         {activeSection === "table" && (
           <div className="pa-section-content">
-            <h3>Table Overview</h3>
+            <div className="section-header">
+              <h3>Table Overview</h3>
+              <button
+                onClick={reloadCurrentSection}
+                className="reload-btn"
+                title="Reload table data"
+                disabled={loadingStates.reloadTable}
+              >
+                {loadingStates.reloadTable ? (
+                  <svg
+                    className="loading-spinner"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                    <path d="M3 21v-5h5" />
+                  </svg>
+                ) : (
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                    <path d="M3 21v-5h5" />
+                  </svg>
+                )}
+              </button>
+            </div>
             <div className="table-info">
               <div className="info-item">
                 <span className="info-label">Table ID:</span>
@@ -970,22 +1404,315 @@ p {
 
         {activeSection === "collab" && (
           <div className="pa-section-content">
-            <h3>Collaboration</h3>
-            <div className="collab-features">
-              <div className="collab-card">
-                <div className="collab-icon">👥</div>
-                <h4>Real-time Chat</h4>
-                <p>Chat with your team members</p>
+            {/* Coming Soon Notification */}
+            {showComingSoon && (
+              <div className="coming-soon-notification">
+                <div className="notification-content">
+                  <span>🚀 Coming Soon!</span>
+                  <p>This feature is under development</p>
+                </div>
               </div>
-              <div className="collab-card">
-                <div className="collab-icon">🖱️</div>
-                <h4>Live Cursors</h4>
-                <p>See who's working where</p>
+            )}
+
+            <div className="chat-interface">
+              {/* Channel Header */}
+              <div className="chat-header">
+                <div className="channel-info">
+                  <h2 className="channel-title">#Front-end Devs</h2>
+                  <div className="channel-tabs">
+                    <button
+                      className={`tab-button ${
+                        activeTab === "message" ? "active" : ""
+                      }`}
+                      onClick={() => setActiveTab("message")}
+                    >
+                      Message
+                    </button>
+                    <button
+                      className={`tab-button ${
+                        activeTab === "notes" ? "active" : ""
+                      }`}
+                      onClick={() => setActiveTab("notes")}
+                    >
+                      Notes
+                    </button>
+                  </div>
+                </div>
+                <div className="channel-actions">
+                  <button className="action-button" onClick={handleAddChannel}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M8 1V15M1 8H15"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                  <div className="user-count">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M8 8C10.21 8 12 6.21 12 4S10.21 0 8 0 4 1.79 4 4s1.79 4 4 4zM0 14c0-2.67 5.33-4 8-4s8 1.33 8 4v2H0v-2z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    <span>3</span>
+                  </div>
+                  <button className="menu-button" onClick={handleChannelMenu}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <circle cx="8" cy="4" r="1" fill="currentColor" />
+                      <circle cx="8" cy="8" r="1" fill="currentColor" />
+                      <circle cx="8" cy="12" r="1" fill="currentColor" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <div className="collab-card">
-                <div className="collab-icon">📝</div>
-                <h4>Shared Notes</h4>
-                <p>Collaborative note-taking</p>
+
+              {/* Welcome Section */}
+              <div className="welcome-section">
+                <div className="welcome-content">
+                  <div className="welcome-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </div>
+                  <div className="welcome-text">
+                    <h3>Everyone's all here in #Front-end Devs</h3>
+                    <p>
+                      Share announcements and updates about the project and
+                      every other important information here...
+                    </p>
+                  </div>
+                </div>
+                <div className="welcome-actions">
+                  <button
+                    className="welcome-action-btn"
+                    onClick={handleInviteMembers}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M8 8C10.21 8 12 6.21 12 4S10.21 0 8 0 4 1.79 4 4s1.79 4 4 4zM0 14c0-2.67 5.33-4 8-4s8 1.33 8 4v2H0v-2z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    Invite team members
+                  </button>
+                  <button
+                    className="welcome-action-btn"
+                    onClick={handleAddHandbook}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M14 2H2v12h12V2zM6 4h4v2H6V4zm0 4h4v2H6V8z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    Add Project Handbook
+                  </button>
+                  <button
+                    className="welcome-action-btn"
+                    onClick={handleWelcomeMessage}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M8 2C4.69 2 2 4.69 2 8s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 9V7h2v4H7zm0 2h2v2H7v-2z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    Welcome Message
+                  </button>
+                </div>
+              </div>
+
+              {/* Chat Messages */}
+              <div className="chat-messages" ref={messagesContainerRef}>
+                {messages.map((message, index) => (
+                  <React.Fragment key={message.id}>
+                    {(index === 0 ||
+                      messages[index - 1].date !== message.date) && (
+                      <div className="message-separator">
+                        <span>{message.date}</span>
+                      </div>
+                    )}
+
+                    <div className="message">
+                      <div className="message-avatar">
+                        <div className="avatar-initial">
+                          {message.author.charAt(0)}
+                        </div>
+                      </div>
+                      <div className="message-content">
+                        <div className="message-header">
+                          <span className="message-author">
+                            {message.author}
+                          </span>
+                          <span className="message-time">
+                            {message.timestamp}
+                          </span>
+                        </div>
+                        <div className="message-text">{message.content}</div>
+                      </div>
+                    </div>
+                  </React.Fragment>
+                ))}
+                {/* Scroll target for auto-scrolling */}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Message Input */}
+              <div className="message-input-container">
+                <div className="formatting-toolbar">
+                  <button
+                    className="format-btn"
+                    onClick={() => handleFormatText("bold")}
+                  >
+                    B
+                  </button>
+                  <button
+                    className="format-btn"
+                    onClick={() => handleFormatText("italic")}
+                  >
+                    I
+                  </button>
+                  <button
+                    className="format-btn"
+                    onClick={() => handleFormatText("strikethrough")}
+                  >
+                    S
+                  </button>
+                  <button
+                    className="format-btn"
+                    onClick={() => handleFormatText("bullet-list")}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path
+                        d="M2 4h8v1H2V4zm0 3h8v1H2V7z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    className="format-btn"
+                    onClick={() => handleFormatText("numbered-list")}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path
+                        d="M2 4h8v1H2V4zm0 3h8v1H2V7z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    className="format-btn"
+                    onClick={() => handleFormatText("code")}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path
+                        d="M4 2L2 4l2 2M8 2l2 2-2 2"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    className="format-btn"
+                    onClick={() => handleFormatText("link")}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path
+                        d="M4 6h4M6 4v4"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="input-wrapper">
+                  <textarea
+                    className="message-input"
+                    placeholder="Type your message here..."
+                    rows="1"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                  />
+                  <div className="input-actions">
+                    <button
+                      className="action-btn primary"
+                      onClick={handleSendMessage}
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <path
+                          d="M8 1v14M1 8h14"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
+                    <button className="action-btn" onClick={handleMention}>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <path
+                          d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </button>
+                    <button className="action-btn" onClick={handleEmoji}>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <path
+                          d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </button>
+                    <button className="action-btn" onClick={handleFileUpload}>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <path
+                          d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </button>
+                    <button className="action-btn" onClick={handleVoiceMessage}>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <path
+                          d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -994,6 +1721,28 @@ p {
         {activeSection === "settings" && (
           <div className="pa-section-content">
             <h3>Settings</h3>
+
+            {/* Debug info - remove this after fixing */}
+            <div
+              style={{
+                background: "#f0f0f0",
+                padding: "10px",
+                margin: "10px 0",
+                borderRadius: "4px",
+                fontSize: "12px",
+              }}
+            >
+              <strong>Debug Info:</strong>
+              <br />
+              Current User Principal:{" "}
+              {currentUser?.principal?.toString?.() || "undefined"}
+              <br />
+              Table Creator: {table.creator?.toString?.() || "undefined"}
+              <br />
+              Is Creator: {isCreator ? "YES" : "NO"}
+              <br />
+              Current User: {JSON.stringify(currentUser, null, 2)}
+            </div>
             <div className="settings-grid">
               <div className="setting-card">
                 <h4>Table Settings</h4>
@@ -1017,10 +1766,95 @@ p {
                   <input type="checkbox" defaultChecked />
                 </div>
               </div>
+              {isCreator && (
+                <div className="setting-card danger-zone">
+                  <h4>Danger Zone</h4>
+                  <div className="setting-item">
+                    <label>Delete Table</label>
+                    <p className="danger-description">
+                      This action cannot be undone. This will permanently delete
+                      the table and remove all collaborators.
+                    </p>
+                    <button
+                      onClick={handleDeleteTable}
+                      className="delete-table-btn"
+                    >
+                      Delete Table
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Invite Overlay */}
+      {showInviteOverlay && (
+        <div className="invite-overlay">
+          <div className="invite-overlay-content">
+            <div className="invite-overlay-header">
+              <h3>Invite Collaborators</h3>
+              <button
+                onClick={() => setShowInviteOverlay(false)}
+                className="invite-overlay-close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="invite-input-row">
+              <input
+                type="text"
+                value={inviteSearch}
+                onChange={(e) => setInviteSearch(e.target.value)}
+                placeholder="Search by username, email, GitHub, or Principal ID"
+                className="invite-input"
+                autoFocus
+              />
+            </div>
+
+            {inviteSearch.trim() !== "" && (
+              <div className="invite-results">
+                {filteredInvitees.length === 0 ? (
+                  <div className="invite-empty">No users found.</div>
+                ) : (
+                  filteredInvitees.slice(0, 8).map((u) => (
+                    <div key={u.principal} className="invite-result-item">
+                      <div className="invite-result-info">
+                        <div className="invite-result-name">{u.username}</div>
+                        <div className="invite-result-email">{u.email}</div>
+                      </div>
+                      <button
+                        className="invite-send-btn"
+                        disabled={inviteLoading || sendingTo === u.principal}
+                        onClick={() => handleSendInvite(u)}
+                      >
+                        {sendingTo === u.principal ? "Sending..." : "Invite"}
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            <div className="pending-section">
+              <h4>Pending invites</h4>
+              {pendingSent.length === 0 ? (
+                <div className="invite-empty">No pending invites.</div>
+              ) : (
+                <ul className="pending-list">
+                  {pendingSent.map((name, idx) => (
+                    <li key={`${name}-${idx}`} className="pending-item">
+                      <span className="pending-name">{name}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
