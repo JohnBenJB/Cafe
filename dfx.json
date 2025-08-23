@@ -10,6 +10,11 @@
       "main": "src/table_management/main.mo",
       "dependencies": ["authentication", "internet_identity"]
     },
+    "storage": {
+      "type": "motoko",
+      "main": "src/storage/main.mo",
+      "dependencies": ["authentication", "internet_identity"]
+    },
 
     "internet_identity": {
       "type": "custom",
@@ -24,7 +29,7 @@
     },
 
     "frontend": {
-      "dependencies": ["authentication", "table_management"],
+      "dependencies": ["authentication", "table_management", "storage"],
       "source": ["frontend/dist"],
       "type": "assets",
       "workspace": "frontend"
