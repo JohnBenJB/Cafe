@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { tableManagementService } from "../../services/tableManagement";
 import { authenticationService } from "../../services/authentication";
 import internetIdentityService from "../../services/internetIdentity";
+import MonacoEditor from "./MonacoCollaborativeEditor";
 import "./TableDetails.css";
 import caffeineIcon from "/caffeine.jpg";
 
@@ -254,17 +255,6 @@ MIT License - see LICENSE file for details`,
       isActive: false,
     },
   ]);
-  const [activeFileId, setActiveFileId] = useState(1);
-  const [editorContent, setEditorContent] = useState("");
-  const [showSidebar, setShowSidebar] = useState(true);
-  const [showTerminal, setShowTerminal] = useState(true);
-  const [terminalOutput, setTerminalOutput] = useState([
-    { type: "command", content: "npm start" },
-    { type: "output", content: "Starting development server..." },
-    { type: "output", content: "Server running on http://localhost:3000" },
-  ]);
-  const [newFileName, setNewFileName] = useState("");
-  const [showNewFileModal, setShowNewFileModal] = useState(false);
 
   // Chat interface state
   const [messages, setMessages] = useState([
@@ -323,7 +313,36 @@ MIT License - see LICENSE file for details`,
       // Get table collaborators
       const collaboratorsResult =
         await tableManagementService.getTableCollaborators(table.id);
-      setCollaborators(collaboratorsResult);
+      console.log("Table collaborators loaded:", collaboratorsResult);
+      console.log("Table creator:", table.creator);
+      console.log("Table creator type:", typeof table.creator);
+
+      // Ensure the table creator is included in the collaborators list
+      let allCollaborators = [...collaboratorsResult];
+
+      // Check if creator is already in the list
+      const creatorExists = allCollaborators.some(
+        (c) => String(c.principal) === String(table.creator)
+      );
+
+      if (!creatorExists && table.creator) {
+        // Try to get creator info from all users
+        const allUsers = await authenticationService.getAllUsers();
+        const creatorUser = allUsers.find(
+          (u) => String(u.principal) === String(table.creator)
+        );
+
+        if (creatorUser) {
+          allCollaborators.unshift({
+            principal: table.creator,
+            username: creatorUser.username || "Unknown",
+            email: creatorUser.email || "",
+            isCreator: true,
+          });
+        }
+      }
+
+      setCollaborators(allCollaborators);
 
       // Load all users for invite search (only once per table load)
       const users = await authenticationService.getAllUsers();
@@ -371,14 +390,6 @@ MIT License - see LICENSE file for details`,
       setLoadingStates((prev) => ({ ...prev, reloadTable: false }));
     }
   }, [activeSection, loadTableDetails]);
-
-  // Initialize editor content when files change
-  useEffect(() => {
-    const activeFile = files.find((f) => f.id === activeFileId);
-    if (activeFile) {
-      setEditorContent(activeFile.content);
-    }
-  }, [activeFileId, files]);
 
   useEffect(() => {
     if (table) {
@@ -589,204 +600,11 @@ MIT License - see LICENSE file for details`,
     }
   };
 
-  // Code editor functions
-  const handleFileSwitch = (fileId) => {
-    // Save current content
+  // Collaborative editor handlers
+  const handleFileContentChange = (fileId, content) => {
     setFiles((prev) =>
-      prev.map((f) =>
-        f.id === activeFileId ? { ...f, content: editorContent } : f
-      )
+      prev.map((f) => (f.id === fileId ? { ...f, content } : f))
     );
-
-    // Switch to new file
-    setActiveFileId(fileId);
-    setFiles((prev) => prev.map((f) => ({ ...f, isActive: f.id === fileId })));
-  };
-
-  const handleFileClose = (fileId) => {
-    if (files.length <= 1) return; // Don't close the last file
-
-    const newFiles = files.filter((f) => f.id !== fileId);
-    const newActiveFile = newFiles[0];
-
-    setFiles(
-      newFiles.map((f) => ({ ...f, isActive: f.id === newActiveFile.id }))
-    );
-    setActiveFileId(newActiveFile.id);
-  };
-
-  const handleContentChange = (e) => {
-    setEditorContent(e.target.value);
-  };
-
-  const handleSaveFile = () => {
-    setFiles((prev) =>
-      prev.map((f) =>
-        f.id === activeFileId ? { ...f, content: editorContent } : f
-      )
-    );
-
-    // Add save notification to terminal
-    setTerminalOutput((prev) => [
-      ...prev,
-      {
-        type: "output",
-        content: `Saved ${files.find((f) => f.id === activeFileId)?.name}`,
-      },
-    ]);
-  };
-
-  const handleRunCode = () => {
-    const activeFile = files.find((f) => f.id === activeFileId);
-    if (activeFile?.language === "javascript") {
-      try {
-        // Create a safe evaluation environment
-        const result = eval(activeFile.content);
-        setTerminalOutput((prev) => [
-          ...prev,
-          { type: "command", content: `node ${activeFile.name}` },
-          { type: "output", content: "Code executed successfully" },
-          {
-            type: "output",
-            content: `Result: ${JSON.stringify(result, null, 2)}`,
-          },
-        ]);
-      } catch (error) {
-        setTerminalOutput((prev) => [
-          ...prev,
-          { type: "command", content: `node ${activeFile.name}` },
-          { type: "output", content: `Error: ${error.message}` },
-        ]);
-      }
-    } else {
-      setTerminalOutput((prev) => [
-        ...prev,
-        { type: "command", content: `open ${activeFile?.name}` },
-        {
-          type: "output",
-          content: `Opening ${activeFile?.name} in browser...`,
-        },
-      ]);
-    }
-  };
-
-  const handleNewFile = () => {
-    if (!newFileName.trim()) return;
-
-    const fileExtension = newFileName.split(".").pop().toLowerCase();
-    let language = "text";
-
-    if (fileExtension === "js") language = "javascript";
-    else if (fileExtension === "html") language = "html";
-    else if (fileExtension === "css") language = "css";
-    else if (fileExtension === "json") language = "json";
-    else if (fileExtension === "py") language = "python";
-
-    const newFile = {
-      id: Date.now(),
-      name: newFileName,
-      content: "",
-      language,
-      isActive: false,
-    };
-
-    setFiles((prev) => [...prev, newFile]);
-    setActiveFileId(newFile.id);
-    setFiles((prev) =>
-      prev.map((f) => ({ ...f, isActive: f.id === newFile.id }))
-    );
-    setNewFileName("");
-    setShowNewFileModal(false);
-  };
-
-  const getLanguageIcon = (language) => {
-    switch (language) {
-      case "javascript":
-        return "🔷";
-      case "jsx":
-        return "⚛️";
-      case "html":
-        return "🌐";
-      case "css":
-        return "🎨";
-      case "json":
-        return "📋";
-      case "markdown":
-        return "📝";
-      case "python":
-        return "🐍";
-      default:
-        return "📄";
-    }
-  };
-
-  const getSyntaxHighlighting = (content, language) => {
-    // Enhanced syntax highlighting
-    if (language === "javascript" || language === "jsx") {
-      return content
-        .replace(
-          /\b(function|const|let|var|return|if|else|for|while|console|import|export|from|default|useState|useEffect|React|useRef|useCallback|useMemo)\b/g,
-          '<span class="keyword">$1</span>'
-        )
-        .replace(
-          /\b(console\.log|console\.error|console\.warn)\b/g,
-          '<span class="function">$1</span>'
-        )
-        .replace(/\b(\w+)\(/g, '<span class="function">$1</span>(')
-        .replace(/"([^"]*)"/g, '<span class="string">"$1"</span>')
-        .replace(/'([^']*)'/g, "<span class=\"string\">'$1'</span>")
-        .replace(/`([^`]*)`/g, '<span class="string">`$1`</span>')
-        .replace(/\/\/(.*)/g, '<span class="comment">//$1</span>')
-        .replace(/\/\*([^*]*)\*\//g, '<span class="comment">/*$1*/</span>')
-        .replace(/\b(\d+\.?\d*)\b/g, '<span class="number">$1</span>')
-        .replace(
-          /\b(true|false|null|undefined)\b/g,
-          '<span class="boolean">$1</span>'
-        );
-    }
-    if (language === "html") {
-      return content
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/(&lt;[^&]*&gt;)/g, '<span class="tag">$1</span>')
-        .replace(/(&lt;\/[^&]*&gt;)/g, '<span class="tag">$1</span>')
-        .replace(/(&lt;[^&]*\s+[^&]*&gt;)/g, '<span class="tag">$1</span>');
-    }
-    if (language === "css") {
-      return content
-        .replace(/([a-zA-Z-]+):/g, '<span class="property">$1</span>:')
-        .replace(/(#[0-9a-fA-F]{3,6})/g, '<span class="color">$1</span>')
-        .replace(/(rgb\([^)]*\))/g, '<span class="color">$1</span>')
-        .replace(/(rgba\([^)]*\))/g, '<span class="color">$1</span>')
-        .replace(
-          /(\d+px|\d+em|\d+rem|\d+%|\d+vh|\d+vw)/g,
-          '<span class="number">$1</span>'
-        )
-        .replace(/\/\*([^*]*)\*\//g, '<span class="comment">/*$1*/</span>')
-        .replace(/([a-zA-Z-]+)\s*\{/g, '<span class="selector">$1</span> {');
-    }
-    if (language === "json") {
-      return content
-        .replace(/"([^"]+)":/g, '<span class="property">"$1"</span>:')
-        .replace(/"([^"]*)"/g, '<span class="string">"$1"</span>')
-        .replace(/\b(\d+\.?\d*)\b/g, '<span class="number">$1</span>')
-        .replace(/\b(true|false|null)\b/g, '<span class="boolean">$1</span>');
-    }
-    if (language === "markdown") {
-      return content
-        .replace(/^#\s+(.+)$/gm, '<span class="keyword"># $1</span>')
-        .replace(/^##\s+(.+)$/gm, '<span class="keyword">## $1</span>')
-        .replace(/^###\s+(.+)$/gm, '<span class="keyword">### $1</span>')
-        .replace(/\*\*([^*]+)\*\*/g, '<span class="keyword">**$1**</span>')
-        .replace(/\*([^*]+)\*/g, '<span class="keyword">*$1*</span>')
-        .replace(/`([^`]+)`/g, '<span class="string">`$1`</span>')
-        .replace(
-          /\[([^\]]+)\]\(([^)]+)\)/g,
-          '<span class="string">[$1]($2)</span>'
-        );
-    }
-    return content;
   };
 
   if (isLoading) {
@@ -1143,8 +961,12 @@ MIT License - see LICENSE file for details`,
               <div className="info-item">
                 <span className="info-label">Created by:</span>
                 <span className="info-value">
-                  {collaborators.find((c) => c.principal === table.creator)
-                    ?.username || "Unknown"}
+                  {(() => {
+                    const creator = collaborators.find(
+                      (c) => String(c.principal) === String(table.creator)
+                    );
+                    return creator?.username || "Unknown";
+                  })()}
                 </span>
               </div>
               <div className="info-item">
@@ -1171,7 +993,9 @@ MIT License - see LICENSE file for details`,
                       <div className="collaborator-email">
                         {collaborator.email}
                       </div>
-                      {collaborator.principal === table.creator && (
+                      {(String(collaborator.principal) ===
+                        String(table.creator) ||
+                        collaborator.isCreator) && (
                         <div className="creator-badge">Creator</div>
                       )}
                     </div>
@@ -1206,199 +1030,11 @@ MIT License - see LICENSE file for details`,
         )}
 
         {activeSection === "code" && (
-          <div className="pa-section-content">
-            <div className="code-editor-container">
-              <div className="editor-header">
-                <div className="file-tabs">
-                  {files.map((file) => (
-                    <div
-                      key={file.id}
-                      className={`file-tab ${file.isActive ? "active" : ""}`}
-                      onClick={() => handleFileSwitch(file.id)}
-                    >
-                      <span className="file-icon">
-                        {getLanguageIcon(file.language)}
-                      </span>
-                      <span className="file-name">{file.name}</span>
-                      <button
-                        className="file-close"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleFileClose(file.id);
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    className="file-tab new-file"
-                    onClick={() => setShowNewFileModal(true)}
-                  >
-                    <span className="file-icon">+</span>
-                    <span className="file-name">New File</span>
-                  </button>
-                </div>
-                <div className="editor-controls">
-                  <button
-                    className="control-btn"
-                    onClick={handleSaveFile}
-                    title="Save"
-                  >
-                    💾
-                  </button>
-                  <button
-                    className="control-btn"
-                    onClick={handleRunCode}
-                    title="Run"
-                  >
-                    ▶
-                  </button>
-                  <button
-                    className="control-btn"
-                    onClick={() => setShowSidebar(!showSidebar)}
-                    title="Toggle Sidebar"
-                  >
-                    📁
-                  </button>
-                  <button
-                    className="control-btn"
-                    onClick={() => setShowTerminal(!showTerminal)}
-                    title="Toggle Terminal"
-                  >
-                    💻
-                  </button>
-                </div>
-              </div>
-              <div className="editor-layout">
-                {showSidebar && (
-                  <div className="editor-sidebar">
-                    <div className="sidebar-section">
-                      <div className="sidebar-header">
-                        EXPLORER
-                        <button
-                          className="new-file-btn"
-                          onClick={() => setShowNewFileModal(true)}
-                          title="New File"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <div className="file-tree">
-                        {files.map((file) => (
-                          <div
-                            key={file.id}
-                            className={`file-item ${
-                              file.isActive ? "active" : ""
-                            }`}
-                            onClick={() => handleFileSwitch(file.id)}
-                          >
-                            <span className="file-icon">
-                              {getLanguageIcon(file.language)}
-                            </span>
-                            <span>{file.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div className="editor-main">
-                  <div className="line-numbers">
-                    {editorContent.split("\n").map((_, i) => (
-                      <div key={i} className="line-number">
-                        {i + 1}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="code-content">
-                    <textarea
-                      className="code-textarea"
-                      value={editorContent}
-                      onChange={handleContentChange}
-                      spellCheck={false}
-                      placeholder="Start coding..."
-                    />
-                    <div
-                      className="code-highlight"
-                      dangerouslySetInnerHTML={{
-                        __html: getSyntaxHighlighting(
-                          editorContent,
-                          files.find((f) => f.id === activeFileId)?.language ||
-                            "text"
-                        ),
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-              {showTerminal && (
-                <div className="editor-terminal">
-                  <div className="terminal-header">
-                    <span>Terminal</span>
-                    <button
-                      className="terminal-close"
-                      onClick={() => setShowTerminal(false)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <div className="terminal-content">
-                    {terminalOutput.map((output, index) => (
-                      <div
-                        key={index}
-                        className={`terminal-line ${output.type}`}
-                      >
-                        {output.type === "command" && (
-                          <>
-                            <span className="terminal-prompt">$</span>
-                            <span className="terminal-command">
-                              {output.content}
-                            </span>
-                          </>
-                        )}
-                        {output.type === "output" && (
-                          <span className="terminal-output">
-                            {output.content}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* New File Modal */}
-            {showNewFileModal && (
-              <div
-                className="modal-overlay"
-                onClick={() => setShowNewFileModal(false)}
-              >
-                <div
-                  className="modal-content"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <h3>Create New File</h3>
-                  <input
-                    type="text"
-                    placeholder="filename.js, filename.html, etc."
-                    value={newFileName}
-                    onChange={(e) => setNewFileName(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleNewFile()}
-                    autoFocus
-                  />
-                  <div className="modal-actions">
-                    <button onClick={() => setShowNewFileModal(false)}>
-                      Cancel
-                    </button>
-                    <button onClick={handleNewFile} className="primary">
-                      Create
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+          <div className="pa-section-content code-editor-section">
+            <MonacoEditor
+              files={files}
+              onFileChange={handleFileContentChange}
+            />
           </div>
         )}
 
