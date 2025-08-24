@@ -120,8 +120,8 @@
 
 .info-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .info-label {
@@ -136,6 +136,7 @@
   font-size: 14px;
   color: #111827;
   font-weight: 600;
+  text-transform: capitalize;
 }
 
 .collaborators-section {
@@ -151,8 +152,7 @@
 
 .collaborators-list {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  gap: 1rem;
   max-height: 200px;
   overflow-y: auto;
   padding-bottom: 1rem;
@@ -169,11 +169,13 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
+  padding: 1rem;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   transition: all 0.2s ease;
+  width: fit-content;
+  animation: slideIn 0.3s ease-out;
 }
 
 .collaborator-item:hover {
