@@ -61,12 +61,8 @@ actor table_management {
     };
   
     // Only allow updating the profile of the logged-in user
-    if (sessionPrincipal != caller) {
-      return {
-        success = false;
-        message = ?"Cannot update another user's profile";
-        user = null;
-      };
+    if (sessionPrincipal != Principal.toText(caller)) {
+      return (#err("Cannot update another user's profile"));
     };
     if (title == "") {
       return #err("Table title required");
@@ -107,12 +103,8 @@ actor table_management {
     };
   
     // Only allow updating the profile of the logged-in user
-    if (sessionPrincipal != caller) {
-      return {
-        success = false;
-        message = ?"Cannot update another user's profile";
-        user = null;
-      };
+    if (sessionPrincipal != Principal.toText(caller)) {
+      return (#err("Cannot update another user's profile"));
     };
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {
@@ -160,12 +152,8 @@ actor table_management {
     };
   
     // Only allow updating the profile of the logged-in user
-    if (sessionPrincipal != caller) {
-      return {
-        success = false;
-        message = ?"Cannot update another user's profile";
-        user = null;
-      };
+    if (sessionPrincipal != Principal.toText(caller)) {
+      return (#err("Cannot update another user's profile"));
     };
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {
@@ -194,12 +182,8 @@ actor table_management {
     };
   
     // Only allow updating the profile of the logged-in user
-    if (sessionPrincipal != caller) {
-      return {
-        success = false;
-        message = ?"Cannot update another user's profile";
-        user = null;
-      };
+    if (sessionPrincipal != Principal.toText(caller)) {
+      return (#err("Cannot update another user's profile"));
     };
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {
@@ -262,12 +246,8 @@ actor table_management {
     };
   
     // Only allow updating the profile of the logged-in user
-    if (sessionPrincipal != caller) {
-      return {
-        success = false;
-        message = ?"Cannot update another user's profile";
-        user = null;
-      };
+    if (sessionPrincipal != Principal.toText(caller)) {
+      return (#err("Cannot update another user's profile"));
     };
     let creatorRes = await Auth.get_user_by_principal(Principal.toText(caller));
     if (creatorRes.user == null) { return #err("Principal not a registered user"); };
@@ -309,12 +289,8 @@ actor table_management {
     };
   
     // Only allow updating the profile of the logged-in user
-    if (sessionPrincipal != caller) {
-      return {
-        success = false;
-        message = ?"Cannot update another user's profile";
-        user = null;
-      };
+    if (sessionPrincipal != Principal.toText(caller)) {
+      return (#err("Cannot update another user's profile"));
     };
     // changed: use AuthResult
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
@@ -367,12 +343,8 @@ actor table_management {
     };
   
     // Only allow updating the profile of the logged-in user
-    if (sessionPrincipal != caller) {
-      return {
-        success = false;
-        message = ?"Cannot update another user's profile";
-        user = null;
-      };
+    if (sessionPrincipal != Principal.toText(caller)) {
+      return (#err("Cannot update another user's profile"));
     };
     switch (tablesById.get(tableId)) {
       case null #err("Table does not exist.");
@@ -401,12 +373,8 @@ actor table_management {
     };
   
     // Only allow updating the profile of the logged-in user
-    if (sessionPrincipal != caller) {
-      return {
-        success = false;
-        message = ?"Cannot update another user's profile";
-        user = null;
-      };
+    if (sessionPrincipal != Principal.toText(caller)) {
+      return (#err("Cannot update another user's profile"));
     };
     switch (pendingJoinRequests.remove((caller, tableId))) {
       case null #err("Pending request does not exist.");
@@ -427,12 +395,8 @@ actor table_management {
     };
   
     // Only allow updating the profile of the logged-in user
-    if (sessionPrincipal != caller) {
-      return {
-        success = false;
-        message = ?"Cannot update another user's profile";
-        user = null;
-      };
+    if (sessionPrincipal != Principal.toText(caller)) {
+      return (#err("Cannot update another user's profile"));
     };
     switch (tablesById.get(tableId)) {
       case null #err("Table does not exist");
@@ -471,12 +435,8 @@ actor table_management {
     };
   
     // Only allow updating the profile of the logged-in user
-    if (sessionPrincipal != caller) {
-      return {
-        success = false;
-        message = ?"Cannot update another user's profile";
-        user = null;
-      };
+    if (sessionPrincipal != Principal.toText(caller)) {
+      return (#err("Cannot update another user's profile"));
     };
     // changed: use AuthResult
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
