@@ -1271,7 +1271,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
-      #AccessDenied
+      return #err(#AccessDenied);
     };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
@@ -2036,7 +2036,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
-      #AccessDenied
+      return #err(#AccessDenied);
     };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
@@ -3214,15 +3214,29 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Process all pending autosaves
   public shared(msg) func processAllAutosaves(
+    sessionId : Text,
     user : Principal
   ) : async Result<{ processed : Nat; errors : [Text] }, Error> {
-
+    let caller = msg.caller;
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err(#AccessDenied);
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != Principal.toText(caller)) {
+      return #err(#AccessDenied);
+    };
     let filesToProcess = await getFilesNeedingAutosave();
     let results = Buffer.Buffer<Text>(0);
     var processedCount : Nat = 0;
 
     for (fileId in filesToProcess.vals()) {
-      switch (await process_autosave(fileId)) {
+      switch (await process_autosave(sessionIdfileId)) {
         case (#ok(_)) { processedCount += 1 };
         case (#err(error)) {
           results.add("File " # Nat32.toText(fileId) # ": " # Types.errorMessage(error));
