@@ -8,7 +8,7 @@ import Principal "mo:base/Principal";
 import Auth "canister:authentication";
 import Result "mo:base/Result";
 
-actor TableManagement {
+actor table_management {
   type Table = Types.Table;
   type UserTables = Types.UserTables;
   type User = Auth.User;
