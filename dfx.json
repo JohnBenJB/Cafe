@@ -13,7 +13,7 @@
     "storage": {
       "type": "motoko",
       "main": "src/storage/main.mo",
-      "dependencies": ["authentication", "internet_identity"]
+      "dependencies": ["authentication", "internet_identity", "table_management"]
     },
 
     "internet_identity": {
