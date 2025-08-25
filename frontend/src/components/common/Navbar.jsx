@@ -8,6 +8,25 @@ const Navbar = () => {
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 100);
+
+      // Determine which section is currently active based on scroll position
+      const sections = [
+        "home",
+        "features",
+        "how-it-works",
+        "pricing",
+        "community",
+      ];
+      const scrollPosition = window.scrollY + 100; // Offset for navbar height
+
+      // Find the section that's currently in view
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const section = document.getElementById(sections[i]);
+        if (section && section.offsetTop <= scrollPosition) {
+          setActiveSection(sections[i]);
+          break;
+        }
+      }
     };
 
     window.addEventListener("scroll", handleScroll);
@@ -89,11 +108,6 @@ const Navbar = () => {
             ))}
           </div>
         </div>
-
-        {/* <div className="nav-actions">
-          <button className="btn-secondary">Sign In</button>
-          <button className="btn-primary">Get Started</button>
-        </div> */}
       </div>
     </nav>
   );

@@ -1,26 +1,24 @@
 import React from "react";
-import Navbar from "./components/common/Navbar";
-import Hero from "./components/landing-page/Hero";
-import Features from "./components/landing-page/Features";
-import HowItWorks from "./components/landing-page/HowItWorks";
-import Pricing from "./components/landing-page/Pricing";
-import Community from "./components/landing-page/Community";
-import CTA from "./components/landing-page/CTA";
-import Footer from "./components/common/Footer";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext.jsx";
+import Landing from "./pages/Landing";
+import SignUp from "./pages/SignUp";
+import Dashboard from "./pages/Dashboard";
+import ProfileSetup from "./pages/ProfileSetup";
 import "./App.css";
 
 function App() {
   return (
-    <div className="App">
-      <Navbar />
-      <Hero />
-      <Features />
-      <HowItWorks />
-      <Pricing />
-      <Community />
-      <CTA />
-      <Footer />
-    </div>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/auth" element={<SignUp />} />
+          <Route path="/profile-setup" element={<ProfileSetup />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 
