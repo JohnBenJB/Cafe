@@ -352,74 +352,6 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     Buffer.toArray(needingAutosave);
   };
 
-  // Process autosave for a file
-  // public func processAutosave(
-  //   fileId : FileId,
-  //   saveFunction : (FileId, Principal) -> Result<Version, Error>,
-  //   user : Principal
-  // ) : async Result<Version, Error> {
-
-  //   switch (autosavePolicies.get(fileId)) {
-  //     case (?state) {
-  //       if (not state.policy.enabled) {
-  //         return #err(#InvalidOperation);
-  //       };
-
-  //       let now = Types.now();
-  //       let timeSinceActivity = now - state.lastActivity;
-  //       let timeSinceLastAutosave = now - state.lastAutosave;
-
-  //       // Check if autosave is needed
-  //       if (not state.pendingChanges) {
-  //         return #err(#InvalidOperation); // No changes to save
-  //       };
-
-  //       if (timeSinceLastAutosave < state.policy.intervalNanos) {
-  //         return #err(#InvalidOperation); // Too soon since last autosave
-  //       };
-
-  //       if (timeSinceActivity < state.policy.idleNanos) {
-  //         return #err(#InvalidOperation); // File not idle enough
-  //       };
-
-  //       // Perform autosave
-  //       switch (saveFunction(fileId, user)) {
-  //         case (#ok(version)) {
-  //           // Mark as saved
-  //           markSaved(fileId);
-  //           #ok(version);
-  //         };
-  //         case (#err(error)) { #err(error) };
-  //       };
-  //     };
-  //     case null { #err(#NotFound) };
-  //   };
-  // };
-
-  // // Process all pending autosaves
-  // public func processAllAutosaves(
-  //   saveFunction : (FileId, Principal) -> Result<Version, Error>,
-  //   user : Principal
-  // ) : async Result<{ processed : Nat; errors : [Text] }, Error> {
-
-  //   let filesToProcess = getFilesNeedingAutosave();
-  //   let results = Buffer.Buffer<Text>(0);
-  //   var processedCount : Nat = 0;
-
-  //   for (fileId in filesToProcess.vals()) {
-  //     switch (processAutosave(fileId, saveFunction, user)) {
-  //       case (#ok(_)) { processedCount += 1 };
-  //       case (#err(error)) {
-  //         results.add("File " # Nat32.toText(fileId) # ": " # Types.errorMessage(error));
-  //       };
-  //     };
-  //   };
-
-  //   #ok({
-  //     processed = processedCount;
-  //     errors = Buffer.toArray(results);
-  //   });
-  // };
 
   // ===== CLEANUP AND MAINTENANCE =====
 
@@ -444,20 +376,6 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
     #ok(removedCount);
   };
-
-  // Prune old versions based on autosave policy
-  // public func pruneOldVersions(
-  //   fileId : FileId,
-  //   pruneFunction : (FileId, Nat) -> Result<Nat, Error>
-  // ) : async Result<Nat, Error> {
-
-  //   switch (autosavePolicies.get(fileId)) {
-  //     case (?state) {
-  //       pruneFunction(fileId, state.policy.maxVersions);
-  //     };
-  //     case null { #err(#NotFound) };
-  //   };
-  // };
 
   // ===== GLOBAL SETTINGS =====
 

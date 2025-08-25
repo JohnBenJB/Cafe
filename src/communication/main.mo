@@ -23,7 +23,6 @@ actor {
   // Import types
   public type ChatId = Types.ChatId;
   public type MessageId = Types.MessageId;
-  public type UserId = Types.UserId;
   public type TableId = Types.TableId;
   public type ChatInfo = Types.ChatInfo;
   public type Chat = Types.Chat;
@@ -49,7 +48,7 @@ actor {
 
   // Stable arrays for upgrade serialization
   stable var stableChats : [(ChatId, Chat)] = [];
-  stable var stableChatsByTable : [(TableId, ChatId)] = [];
+  stable var stableChatsByTable : [(Nat, ChatId)] = [];
 
   system func preupgrade() {
     // Serialize chats
@@ -85,22 +84,24 @@ actor {
   var chats = HashMap.HashMap<ChatId, Chat>(0, Nat32.equal, func(x : Nat32) : Nat { Nat32.toNat(x) });
 
   // Table to chat mapping (one chat per table)
-  var chatsByTable = HashMap.HashMap<TableId, ChatId>(0, Text.equal, Text.hash);
+  var chatsByTable = HashMap.HashMap<Nat, ChatId>(0, Nat.equal, Hash.hash);
 
   // User typing status
-  var typingUsers = HashMap.HashMap<ChatId, HashMap.HashMap<UserId, Time.Time>>(0, Nat32.equal, func(x : Nat32) : Nat { Nat32.toNat(x) });
+  var typingUsers = HashMap.HashMap<ChatId, HashMap.HashMap<Principal, Time.Time>>(0, Nat32.equal, Hash.hash);
 
   // ===== CHAT MANAGEMENT =====
 
   // Create a new chat for a table
   public shared ({ caller }) func create_chat(
-    name : Text,
-    tableId : TableId
+    tableId : Nat
   ) : async Result<ChatId, Error> {
-    
-    // Validate input
-    if (Text.size(name) == 0 or Text.size(tableId) == 0) {
-      return #Err(#InvalidOperation);
+    switch (await TableManagement.get_table(tableId)) {
+      case (#err(error)) {
+        return #err(#NotFound);
+      };
+      case (#ok(table)) {
+
+      };
     };
     
     // Check if table already has a chat
@@ -119,7 +120,6 @@ actor {
     let now = Types.now();
     let chatInfo : ChatInfo = {
       id = chatId;
-      name = name;
       tableId = tableId;
       participants = [caller]; // Creator is first participant
       createdAt = now;

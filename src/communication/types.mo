@@ -20,17 +20,15 @@ module {
   // Unique identifiers
   public type ChatId = Nat32;
   public type MessageId = Nat32;
-  public type UserId = Principal;
-  public type TableId = Text; // Reference to table where chat is happening
+  public type UserPrincipal = Principal;
   
   // ===== CHAT TYPES =====
   
   // Chat room information
   public type ChatInfo = {
-    id : ChatId;
-    name : Text;
-    tableId : TableId;
-    participants : [UserId];
+    id : ChatId; //might not be a necessary field
+    tableId : Nat;
+    participants : [Principal];
     createdAt : Time.Time;
     lastMessageAt : Time.Time;
     isActive : Bool;
@@ -40,13 +38,12 @@ module {
   public type Chat = {
     info : ChatInfo;
     messages : HashMap.HashMap<MessageId, Message>;
-    participants : HashMap.HashMap<UserId, ParticipantInfo>;
     nextMessageId : MessageId;
   };
   
   // Participant information
   public type ParticipantInfo = {
-    userId : UserId;
+    userPrincipal : Principal;
     joinedAt : Time.Time;
     lastSeen : Time.Time;
     isActive : Bool;
@@ -57,8 +54,6 @@ module {
   // Message content types
   public type MessageContent = {
     #Text : Text;
-    #File : { name : Text; size : Nat; url : Text };
-    #Image : { url : Text; alt : Text };
     #System : Text; // System messages like "User joined"
   };
   
@@ -66,7 +61,7 @@ module {
   public type Message = {
     id : MessageId;
     chatId : ChatId;
-    senderId : UserId;
+    senderPrincipal : Principal;
     content : MessageContent;
     timestamp : Time.Time;
     isEdited : Bool;
@@ -77,8 +72,8 @@ module {
   // Message for API responses
   public type MessageResponse = {
     id : MessageId;
-    senderId : UserId;
-    senderName : Text; // Resolved from user ID
+    senderPrincipal : Principal;
+    senderName : Text; // Resolved from user ID; mught later change or be removed
     content : MessageContent;
     timestamp : Time.Time;
     isEdited : Bool;
@@ -93,9 +88,9 @@ module {
     #MessageSent : MessageResponse;
     #MessageEdited : { messageId : MessageId; newContent : MessageContent };
     #MessageDeleted : MessageId;
-    #UserJoined : { userId : UserId; username : Text };
-    #UserLeft : { userId : UserId; username : Text };
-    #UserTyping : { userId : UserId; isTyping : Bool };
+    #UserJoined : { userPrincipal : Principal; username : Text };
+    #UserLeft : { userPrincipal : Principal; username : Text };
+    #UserTyping : { userPrincipal : Principal; isTyping : Bool };
   };
   
   // ===== UTILITY TYPES =====
@@ -139,9 +134,9 @@ module {
   };
   
   // Check if user is in chat
-  public func isUserInChat(userId : UserId, participants : [UserId]) : Bool {
+  public func isUserInChat(userPrincipal : Principal, participants : [Principal]) : Bool {
     for (participant in participants.vals()) {
-      if (Principal.equal(userId, participant)) {
+      if (Principal.equal(userPrincipal, participant)) {
         return true;
       };
     };
@@ -153,12 +148,6 @@ module {
     switch (content) {
       case (#Text(text)) {
         Text.size(text) <= MAX_MESSAGE_LENGTH and Text.size(text) > 0;
-      };
-      case (#File(file)) {
-        Text.size(file.name) > 0 and file.size > 0;
-      };
-      case (#Image(image)) {
-        Text.size(image.url) > 0;
       };
       case (#System(text)) {
         Text.size(text) > 0;
