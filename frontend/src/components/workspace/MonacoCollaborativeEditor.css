@@ -148,18 +148,6 @@
   box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
 }
 
-.btn-primary {
-  width: 100%;
-  padding: 8px 16px;
-  background: #007acc;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s ease;
-}
-
 .btn-primary:hover {
   background: #005a9e;
 }
