@@ -21,6 +21,7 @@ import Versions "./versions";
 import Realtime "./realtime";
 import Autosave "./autosave";
 import TableManagement "canister:table_management";
+import Auth "canister:authentication";
 
   // ===== STORAGE CANISTER MAIN MODULE =====
   // Integrates all storage modules and provides public interface
