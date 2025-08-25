@@ -23,7 +23,6 @@ actor {
   // Import types
   public type ChatId = Types.ChatId;
   public type MessageId = Types.MessageId;
-  public type TableId = Types.TableId;
   public type ChatInfo = Types.ChatInfo;
   public type Chat = Types.Chat;
   public type ParticipantInfo = Types.ParticipantInfo;
@@ -129,7 +128,7 @@ actor {
     
     // Create participant info for creator
     let participantInfo : ParticipantInfo = {
-      userId = caller;
+      userPrincipal = caller;
       joinedAt = now;
       lastSeen = now;
       isActive = true;
@@ -139,7 +138,7 @@ actor {
     let chat : Chat = {
       info = chatInfo;
       messages = HashMap.HashMap<MessageId, Message>(0, Nat32.equal, Hash.hash);
-      participants = HashMap.HashMap<UserId, ParticipantInfo>(0, Principal.equal, Principal.hash);
+      participants = HashMap.HashMap<Principal, ParticipantInfo>(0, Principal.equal, Principal.hash);
       nextMessageId = 0;
     };
     
@@ -179,7 +178,7 @@ actor {
   };
 
   // Get chat for a table
-  public query func get_chat_by_table(tableId : TableId) : async Result<ChatId, Error> {
+  public query func get_chat_by_table(tableId : Nat) : async Result<ChatId, Error> {
     switch (chatsByTable.get(tableId)) {
       case (?chatId) { #Ok(chatId) };
       case null { #Err(#NotFound) };
@@ -187,11 +186,11 @@ actor {
   };
 
   // List all chats for a user
-  public query func list_user_chats(userId : UserId) : async Result<[ChatInfo], Error> {
+  public query func list_user_chats(userPrincipal : Principal) : async Result<[ChatInfo], Error> {
     let userChats = Buffer.Buffer<ChatInfo>(0);
     
     for ((_, chat) in chats.entries()) {
-      if (Types.isUserInChat(userId, chat.info.participants)) {
+      if (Types.isUserInChat(userPrincipal, chat.info.participants)) {
         userChats.add(chat.info);
       };
     };
@@ -204,7 +203,7 @@ actor {
   // Add participant to chat
   public shared ({ caller }) func add_participant(
     chatId : ChatId,
-    newParticipant : UserId
+    newParticipant : Principal
   ) : async Result<(), Error> {
     
     switch (chats.get(chatId)) {
@@ -227,7 +226,7 @@ actor {
         // Add participant
         let now = Types.now();
         let participantInfo : ParticipantInfo = {
-          userId = newParticipant;
+          userPrincipal = newParticipant;
           joinedAt = now;
           lastSeen = now;
           isActive = true;
@@ -263,7 +262,7 @@ actor {
   // Remove participant from chat
   public shared ({ caller }) func remove_participant(
     chatId : ChatId,
-    participantToRemove : UserId
+    participantToRemove : Principal
   ) : async Result<(), Error> {
     
     switch (chats.get(chatId)) {
@@ -282,9 +281,9 @@ actor {
         chat.participants.delete(participantToRemove);
         
         // Update chat info
-        let filteredParticipants = Array.filter<UserId>(
+        let filteredParticipants = Array.filter<Principal>(
           chat.info.participants,
-          func(p : UserId) : Bool { not Principal.equal(p, participantToRemove) }
+          func(p : Principal) : Bool { not Principal.equal(p, participantToRemove) }
         );
         chat.info.participants := filteredParticipants;
         
@@ -331,7 +330,7 @@ actor {
         switch (chat.participants.get(caller)) {
           case (?participant) {
             let updatedParticipant : ParticipantInfo = {
-              userId = caller;
+              userPrincipal = caller;
               joinedAt = participant.joinedAt;
               lastSeen = Types.now();
               isActive = true;
@@ -391,7 +390,7 @@ actor {
         switch (chat.participants.get(caller)) {
           case (?participant) {
             let updatedParticipant : ParticipantInfo = {
-              userId = caller;
+              userPrincipal = caller;
               joinedAt = participant.joinedAt;
               lastSeen = now;
               isActive = true;
@@ -572,7 +571,7 @@ actor {
           };
           case null {
             if (isTyping) {
-              let newChatTypingUsers = HashMap.HashMap<UserId, Time.Time>(0, Principal.equal, Principal.hash);
+              let newChatTypingUsers = HashMap.HashMap<Principal, Time.Time>(0, Principal.equal, Principal.hash);
               newChatTypingUsers.put(caller, Types.now());
               typingUsers.put(chatId, newChatTypingUsers);
             };
@@ -586,20 +585,20 @@ actor {
   };
 
   // Get typing users for a chat
-  public query func get_typing_users(chatId : ChatId) : async Result<[UserId], Error> {
+  public query func get_typing_users(chatId : ChatId) : async Result<[Principal], Error> {
     switch (typingUsers.get(chatId)) {
       case (?chatTypingUsers) {
-        let typingUserIds = Buffer.Buffer<UserId>(0);
+        let typingUserPrincipals = Buffer.Buffer<Principal>(0);
         let now = Types.now();
         
-        for ((userId, timestamp) in chatTypingUsers.entries()) {
+        for ((userPrincipal, timestamp) in chatTypingUsers.entries()) {
           // Only include users who typed recently
-          if (Int64.toNat(now - timestamp) < Int64.toNat(Types.TYPING_TIMEOUT_NANOS)) {
-            typingUserIds.add(userId);
+          if ((now - timestamp) < Types.TYPING_TIMEOUT_NANOS) {
+            typingUserPrincipals.add(userPrincipal);
           };
         };
         
-        #Ok(Buffer.toArray(typingUserIds));
+        #Ok(Buffer.toArray(typingUserPrincipals));
       };
       case null { #Ok([]) };
     };
@@ -636,16 +635,16 @@ actor {
     let now = Types.now();
     
     for ((chatId, chatTypingUsers) in typingUsers.entries()) {
-      let toRemove = Buffer.Buffer<UserId>(0);
+      let toRemove = Buffer.Buffer<Principal>(0);
       
-      for ((userId, timestamp) in chatTypingUsers.entries()) {
-        if (Int64.toNat(now - timestamp) >= Int64.toNat(Types.TYPING_TIMEOUT_NANOS)) {
-          toRemove.add(userId);
+      for ((userPrincipal, timestamp) in chatTypingUsers.entries()) {
+        if (now - timestamp >= Types.TYPING_TIMEOUT_NANOS) {
+          toRemove.add(userPrincipal);
         };
       };
       
-      for (userId in toRemove.vals()) {
-        chatTypingUsers.delete(userId);
+      for (userPrincipal in toRemove.vals()) {
+        chatTypingUsers.delete(userPrincipal);
         cleanedCount += 1;
       };
     };
@@ -670,21 +669,21 @@ actor {
   // ===== SYSTEM FUNCTIONS =====
 
   // System heartbeat for maintenance
-  system func heartbeat() {
+  system func heartbeat() : async () {
     // Clean up old typing indicators
     let now = Types.now();
     
     for ((chatId, chatTypingUsers) in typingUsers.entries()) {
-      let toRemove = Buffer.Buffer<UserId>(0);
+      let toRemove = Buffer.Buffer<Principal>(0);
       
-      for ((userId, timestamp) in chatTypingUsers.entries()) {
-        if (Int64.toNat(now - timestamp) >= Int64.toNat(Types.TYPING_TIMEOUT_NANOS)) {
-          toRemove.add(userId);
+      for ((userPrincipal, timestamp) in chatTypingUsers.entries()) {
+        if (now - timestamp >= Types.TYPING_TIMEOUT_NANOS) {
+          toRemove.add(userPrincipal);
         };
       };
       
-      for (userId in toRemove.vals()) {
-        chatTypingUsers.delete(userId);
+      for (userPrincipal in toRemove.vals()) {
+        chatTypingUsers.delete(userPrincipal);
       };
     };
   };

@@ -39,6 +39,7 @@ module {
     info : ChatInfo;
     messages : HashMap.HashMap<MessageId, Message>;
     nextMessageId : MessageId;
+    participants : HashMap.HashMap<Principal, ParticipantInfo>; // Maps user IDs to participant info
   };
   
   // Participant information
@@ -124,7 +125,7 @@ module {
   public let MAX_MESSAGE_LENGTH : Nat = 1000; // 1000 characters
   public let MAX_CHAT_PARTICIPANTS : Nat = 50; // Max 50 participants per chat
   public let MAX_MESSAGES_PER_REQUEST : Nat = 100; // Max messages per API call
-  public let TYPING_TIMEOUT_NANOS : Nat64 = 5_000_000_000; // 5 seconds
+  public let TYPING_TIMEOUT_NANOS : Int = 5_000_000_000; // 5 seconds
   
   // ===== HELPER FUNCTIONS =====
   
