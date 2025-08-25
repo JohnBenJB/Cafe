@@ -47,10 +47,10 @@ shared actor class Authentication() = {
   // ===== SESSION MANAGEMENT =====
 
   // Create a new session for a principal
-  public shared func create_session(principal: Principal) : async Types.SessionResult {
+  public shared func create_session(principal: Text) : async Types.SessionResult {
     let now = Time.now();
     let expires = now + 60 * 60 * 1_000_000_000; // 1 hour in nanoseconds
-    let sessionId = Text.concat(Principal.toText(principal), Int.toText(now));
+    let sessionId = Text.concat(principal, Int.toText(now));
     let session: Types.Session = {
       sessionId = sessionId;
       principal = principal;

@@ -32,7 +32,7 @@ module {
   };
   public type Session = {
     sessionId : Text;
-    principal : Principal;
+    principal : Text;
     createdAt : Int;
     expiresAt : Int;
   };
