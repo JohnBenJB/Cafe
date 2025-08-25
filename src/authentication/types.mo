@@ -30,4 +30,16 @@ module {
     github : Text;
     slack : Text;
   };
+  public type Session = {
+    sessionId : Text;
+    principal : Principal;
+    createdAt : Int;
+    expiresAt : Int;
+  };
+
+  public type SessionResult = {
+    success : Bool;
+    message : ?Text;
+    session : ?Session;
+  };
 };

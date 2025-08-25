@@ -8,6 +8,8 @@ import Nat "mo:base/Nat";
 import Text "mo:base/Text";
 import Principal "mo:base/Principal";
 import Array "mo:base/Array";
+import Int "mo:base/Int";
+
 
 import Types "./types";
 
@@ -16,15 +18,18 @@ shared actor class Authentication() = {
   stable var usersEntries : [(Text, Types.User)] = [];
   stable var userCount : Nat = 0;
   stable var lastUpgradeTime : Int = 0;
+  stable var sessionsEntries : [(Text, Types.Session)] = [];
 
   // In-memory storage
   private var users = HashMap.HashMap<Text, Types.User>(0, Text.equal, Text.hash);
+  private var sessions = HashMap.HashMap<Text, Types.Session>(0, Text.equal, Text.hash);
 
   // System functions for upgrades
   system func preupgrade() {
     usersEntries := Iter.toArray(users.entries());
+    sessionsEntries := Iter.toArray(sessions.entries());
     lastUpgradeTime := Time.now();
-    Debug.print("Pre-upgrade: Saved " # Nat.toText(usersEntries.size()) # " users");
+    Debug.print("Pre-upgrade: Saved " # Nat.toText(usersEntries.size()) # " users and " # Nat.toText(sessionsEntries.size()) # " sessions");
   };
 
   system func postupgrade() {
@@ -32,7 +37,59 @@ shared actor class Authentication() = {
     for ((principal, user) in usersEntries.vals()) {
       users.put(principal, user);
     };
-    Debug.print("Post-upgrade: Restored " # Nat.toText(users.size()) # " users");
+    sessions := HashMap.HashMap<Text, Types.Session>(0, Text.equal, Text.hash);
+    for ((sid, session) in sessionsEntries.vals()) {
+      sessions.put(sid, session);
+    };
+    Debug.print("Post-upgrade: Restored " # Nat.toText(users.size()) # " users and " # Nat.toText(sessions.size()) # " sessions");
+  };
+
+  // ===== SESSION MANAGEMENT =====
+
+  // Create a new session for a principal
+  public shared func create_session(principal: Principal) : async Types.SessionResult {
+    let now = Time.now();
+    let expires = now + 60 * 60 * 1_000_000_000; // 1 hour in nanoseconds
+    let sessionId = Text.concat(Principal.toText(principal), Int.toText(now));
+    let session: Types.Session = {
+      sessionId = sessionId;
+      principal = principal;
+      createdAt = now;
+      expiresAt = expires;
+    };
+    sessions.put(sessionId, session);
+    return {
+      success = true;
+      message = ?"Session created";
+      session = ?session;
+    };
+  };
+
+  // Validate a session by sessionId
+  public shared query func validate_session(sessionId: Text) : async Types.SessionResult {
+    switch (sessions.get(sessionId)) {
+      case (?session) {
+        if (Time.now() < session.expiresAt) {
+          return { success = true; message = ?"Valid session"; session = ?session };
+        } else {
+          sessions.delete(sessionId);
+          return { success = false; message = ?"Session expired"; session = null };
+        }
+      };
+      case null {
+        return { success = false; message = ?"Session not found"; session = null };
+      }
+    }
+  };
+
+  // Logout (delete session)
+  public shared func logout(sessionId: Text) : async Types.SessionResult {
+    let existed = sessions.remove(sessionId);
+    return {
+      success = existed != null;
+      message = if (existed != null) ?"Logged out" else ?"Session not found";
+      session = null;
+    };
   };
 
   // Get or create user profile
