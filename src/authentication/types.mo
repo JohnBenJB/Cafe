@@ -1,12 +1,33 @@
 module {
   public type User = {
-    // id : Nat;
+    principal : Text;
     username : Text;
     email : Text;
     github : Text;
     slack : Text;
-    principal : Principal;
     tablesCreated : [Nat];
     tablesJoined : [Nat];
+    identityProvider : Text;
+    lastLogin : Int;
+    isVerified : Bool;
+    hasCompletedSetup : Bool; // Track if user has completed profile setup
   };
-}
+
+  public type AuthResult = {
+    success : Bool;
+    message : ?Text;
+    user : ?User;
+  };
+
+  public type LoginRequest = {
+    principal : Text;
+    identityProvider : Text;
+  };
+
+  public type ProfileUpdateRequest = {
+    username : Text;
+    email : Text;
+    github : Text;
+    slack : Text;
+  };
+};

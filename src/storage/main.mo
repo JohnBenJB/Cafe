@@ -746,12 +746,13 @@ func markSaved(fileId : FileId) : Result<(), Error> {
         return #err(#NotFound);
       };
       case (#ok(collaborators)) {
-        var tableCollaborators : [Principal] = [];
+        var hasAccess = false;
         for (collaborator in collaborators.vals()) {
-          tableCollaborators := Array.append(tableCollaborators,
-          [collaborator.principal]);
+          if (collaborator.principal == Principal.toText(caller)) {
+            hasAccess := true;
+          };
         };
-        if (not arrayContains<Principal>(tableCollaborators, caller, Principal.equal)) {
+        if (not hasAccess) {
           return #err(#AccessDenied);
         };
       };
@@ -2467,12 +2468,13 @@ func markSaved(fileId : FileId) : Result<(), Error> {
         return #err(#NotFound);
       };
       case (#ok(collaborators)) {
-        var tableCollaborators : [Principal] = [];
+        var hasAccess = false;
         for (collaborator in collaborators.vals()) {
-          tableCollaborators := Array.append(tableCollaborators,
-          [collaborator.principal]);
+          if (collaborator.principal == Principal.toText(caller)) {
+            hasAccess := true;
+          };
         };
-        if (not arrayContains<Principal>(tableCollaborators, caller, Principal.equal)) {
+        if (not hasAccess) {
           return #err(#AccessDenied);
         };
       };

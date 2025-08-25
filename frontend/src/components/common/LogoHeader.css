@@ -1,0 +1,12 @@
+/* LogoHeader - Consistent with Dashboard theme */
+.logo-header {
+  /* reserved for future page-specific spacing */
+}
+
+/* Ensure logo text uses Café brand colors */
+.logo-text {
+  background: linear-gradient(135deg, #e1760c, #ff8a00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

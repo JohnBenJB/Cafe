@@ -1,143 +1,340 @@
-import Types "./types";
-import TrieMap "mo:base/TrieMap";
+import Time "mo:base/Time";
+import Debug "mo:base/Debug";
+import Error "mo:base/Error";
+import HashMap "mo:base/HashMap";
+import Hash "mo:base/Hash";
 import Iter "mo:base/Iter";
+import Nat "mo:base/Nat";
+import Text "mo:base/Text";
 import Principal "mo:base/Principal";
 import Array "mo:base/Array";
-import Result "mo:base/Result";
 
-actor Authentication {
-  type User = Types.User;
-  type Result<T, E> = Result.Result<T, E>;
+import Types "./types";
 
-  //the following variable is, of necessity, stable
-  stable var usersEntries : [(Principal, User)] = []; 
+shared actor class Authentication() = {
+  // Stable variables for data persistence across upgrades
+  stable var usersEntries : [(Text, Types.User)] = [];
+  stable var userCount : Nat = 0;
+  stable var lastUpgradeTime : Int = 0;
 
-  // Initialize TrieMaps
-  let usersByPrincipal = TrieMap.fromEntries<Principal, User>(
-    usersEntries.vals(), Principal.equal, Principal.hash
-  );
+  // In-memory storage
+  private var users = HashMap.HashMap<Text, Types.User>(0, Text.equal, Text.hash);
 
   // System functions for upgrades
   system func preupgrade() {
-    usersEntries := Iter.toArray(usersByPrincipal.entries());
-    // usersByIdEntries := Iter.toArray(usersById.entries());
+    usersEntries := Iter.toArray(users.entries());
+    lastUpgradeTime := Time.now();
+    Debug.print("Pre-upgrade: Saved " # Nat.toText(usersEntries.size()) # " users");
   };
 
   system func postupgrade() {
-    usersEntries := [];
-    // usersByIdEntries := [];
+    users := HashMap.HashMap<Text, Types.User>(0, Text.equal, Text.hash);
+    for ((principal, user) in usersEntries.vals()) {
+      users.put(principal, user);
+    };
+    Debug.print("Post-upgrade: Restored " # Nat.toText(users.size()) # " users");
   };
 
-   // Register or update user profile with Internet Identity
-  public shared(msg) func register_or_update(
-    username : Text,
-    email : Text,
-    github : Text,
-    slack : Text
-  ) : async Result<Text, Text> {
-    let caller = msg.caller;
-
-    // Validate input
-    if (username == "" or email == "") {
-      return #err("Username and email are required.");
-    };
-
-    let existingUser = usersByPrincipal.get(caller);
-    let user : User = {
-      // id = userId;
-      username = username;
-      email = email;
-      github = github;
-      slack = slack;
-      principal = caller;
-      tablesCreated = switch(existingUser) {
-        case (?u) u.tablesCreated;
-        case null [];
-      };
-      tablesJoined = switch(existingUser) {
-        case (?u) u.tablesJoined;
-        case null [];
-      };
-    };
-
-    usersByPrincipal.put(caller, user);
-    // usersById.put(userId, user);
-    #ok("Profile registered/updated successfully.")
-  };
-
-  // update user profile; to be used by other backend canisters
-  public shared func update_user_add_table(
-    principal : Principal,
-    tableId : Nat,
-    tableType: Text,
-  ) : async Result<Text, Text> {
-    switch (usersByPrincipal.get(principal)) {
-      case null return #err("Principal not a registered user");
+  // Get or create user profile
+  public shared query func get_profile(principal : Text) : async Types.AuthResult {
+    switch (users.get(principal)) {
       case (?user) {
-        let updatedUser : User = {
-          username = user.username;
-          email = user.email;
-          github = user.github;
-          slack = user.slack;
-          principal = user.principal;
-          tablesCreated = switch (tableType) {
-            case "tablesJoined" user.tablesCreated;
-            case "tablesCreated" Array.append(user.tablesCreated, [tableId]);
-            case _ user.tablesCreated
-          };
-          tablesJoined = switch (tableType) {
-            case "tablesJoined" Array.append(user.tablesJoined, [tableId]);
-            case "tablesCreated" user.tablesJoined;
-            case _ user.tablesCreated
-          }
-        };
-        usersByPrincipal.put(principal, updatedUser);
-        #ok("User successfully updated")
-      }
+        {
+          success = true;
+          message = ?"Profile found";
+          user = ?user;
+        }
+      };
+      case (null) {
+        {
+          success = false;
+          message = ?"Profile not found";
+          user = null;
+        }
+      };
     }
   };
-  public shared func update_user_remove_table(
-    principal : Principal,
-    tableId : Nat,
-    tableType: Text,
-  ) : async Result<Text, Text> {
-    switch (usersByPrincipal.get(principal)) {
-      case null return #err("Principal not a registered user");
-      case (?user) {
-        let updatedUser : User = {
-          username = user.username;
-          email = user.email;
-          github = user.github;
-          slack = user.slack;
-          principal = user.principal;
-          tablesCreated = switch (tableType) {
-            case "tablesJoined" user.tablesCreated;
-            case "tablesCreated" Array.filter<Nat>(user.tablesCreated, func (id) = id != tableId);
-            case _ user.tablesCreated
-          };
-          tablesJoined = switch (tableType) {
-            case "tablesJoined" Array.filter<Nat>(user.tablesJoined, func (id) = id != tableId);
-            case "tablesCreated" user.tablesJoined;
-            case _ user.tablesCreated
-          }
+
+  // Register or update user profile
+  public shared func register_or_update(principal : Text, profileData : Types.ProfileUpdateRequest) : async Types.AuthResult {
+    try {
+      let existingUser = users.get(principal);
+      
+      let newUser : Types.User = {
+        principal = principal;
+        username = profileData.username;
+        email = profileData.email;
+        github = profileData.github;
+        slack = profileData.slack;
+        tablesCreated = switch (existingUser) {
+          case (?user) { user.tablesCreated };
+          case (null) { [] };
         };
-        usersByPrincipal.put(principal, updatedUser);
-        #ok("User successfully updated")
+        tablesJoined = switch (existingUser) {
+          case (?user) { user.tablesJoined };
+          case (null) { [] };
+        };
+        identityProvider = switch (existingUser) {
+          case (?user) { user.identityProvider };
+          case (null) { "internet_identity" };
+        };
+        lastLogin = Time.now();
+        isVerified = switch (existingUser) {
+          case (?user) { user.isVerified };
+          case (null) { true };
+        };
+        hasCompletedSetup = true; // Mark as completed when profile is updated
+      };
+
+      users.put(principal, newUser);
+      
+      // Increment user count only for new users
+      if (existingUser == null) {
+        userCount += 1;
+        Debug.print("New user registered: " # principal # " (Total users: " # Nat.toText(userCount) # ")");
+      } else {
+        Debug.print("User profile updated: " # principal);
+      };
+
+      {
+        success = true;
+        message = ?"Profile updated successfully";
+        user = ?newUser;
+      }
+    } catch (error) {
+      {
+        success = false;
+        message = ?("Error updating profile: " # Error.message(error));
+        user = null;
       }
     }
   };
 
-  // Get current user profile - FIXED: removed query since we need msg.caller
-  //Functions for getting user profile(s)
-  public shared(msg) func get_profile() : async ?User {
-    usersByPrincipal.get(msg.caller)
+  // Mark user as having completed profile setup
+  public shared func mark_profile_completed(principal : Text) : async Types.AuthResult {
+    switch (users.get(principal)) {
+      case (?user) {
+        let updatedUser : Types.User = {
+          principal = user.principal;
+          username = user.username;
+          email = user.email;
+          github = user.github;
+          slack = user.slack;
+          tablesCreated = user.tablesCreated;
+          tablesJoined = user.tablesJoined;
+          identityProvider = user.identityProvider;
+          lastLogin = Time.now();
+          isVerified = user.isVerified;
+          hasCompletedSetup = true;
+        };
+        
+        users.put(principal, updatedUser);
+        Debug.print("Profile marked as completed for: " # principal);
+        
+        {
+          success = true;
+          message = ?"Profile marked as completed";
+          user = ?updatedUser;
+        }
+      };
+      case (null) {
+        {
+          success = false;
+          message = ?"User not found";
+          user = null;
+        }
+      };
+    }
   };
-  //Get all users
-   public query func get_all_users() : async [User] {
-    Iter.toArray(usersByPrincipal.vals())
+
+  // Check if user has completed profile setup
+  public shared query func has_completed_setup(principal : Text) : async Bool {
+    switch (users.get(principal)) {
+      case (?user) { user.hasCompletedSetup };
+      case (null) { false };
+    }
   };
-  // Get user by Principal
-  public query func get_user_by_principal(userPrincipal : Principal) : async ?User {
-    usersByPrincipal.get(userPrincipal)
+
+  // Get all users
+  public shared query func get_all_users() : async [Types.User] {
+    Iter.toArray(users.vals())
   };
-}
+
+  // Get user by principal
+  public shared query func get_user_by_principal(principal : Text) : async Types.AuthResult {
+    switch (users.get(principal)) {
+      case (?user) {
+        {
+          success = true;
+          message = ?"User found";
+          user = ?user;
+        }
+      };
+      case (null) {
+        {
+          success = false;
+          message = ?"User not found";
+          user = null;
+        }
+      };
+    }
+  };
+
+  // Update user's table access
+  public shared func update_user_add_table(principal : Text, tableId : Nat) : async Types.AuthResult {
+    switch (users.get(principal)) {
+      case (?user) {
+        let updatedUser : Types.User = {
+          principal = user.principal;
+          username = user.username;
+          email = user.email;
+          github = user.github;
+          slack = user.slack;
+          tablesCreated = user.tablesCreated;
+          tablesJoined = Array.append(user.tablesJoined, [tableId]);
+          identityProvider = user.identityProvider;
+          lastLogin = Time.now();
+          isVerified = user.isVerified;
+          hasCompletedSetup = user.hasCompletedSetup;
+        };
+        
+        users.put(principal, updatedUser);
+        
+        {
+          success = true;
+          message = ?"Table access added";
+          user = ?updatedUser;
+        }
+      };
+      case (null) {
+        {
+          success = false;
+          message = ?"User not found";
+          user = null;
+        }
+      };
+    }
+  };
+
+  // Remove user's table access
+  public shared func update_user_remove_table(principal : Text, tableId : Nat) : async Types.AuthResult {
+    switch (users.get(principal)) {
+      case (?user) {
+        let filteredTables = Array.filter(user.tablesJoined, func(id : Nat) : Bool { id != tableId });
+        
+        let updatedUser : Types.User = {
+          principal = user.principal;
+          username = user.username;
+          email = user.email;
+          github = user.github;
+          slack = user.slack;
+          tablesCreated = user.tablesCreated;
+          tablesJoined = filteredTables;
+          identityProvider = user.identityProvider;
+          lastLogin = Time.now();
+          isVerified = user.isVerified;
+          hasCompletedSetup = user.hasCompletedSetup;
+        };
+        
+        users.put(principal, updatedUser);
+        
+        {
+          success = true;
+          message = ?"Table access removed";
+          user = ?updatedUser;
+        }
+      };
+      case (null) {
+        {
+          success = false;
+          message = ?"User not found";
+          user = null;
+        }
+      };
+    }
+  };
+
+  // Delete user
+  public shared func delete_user(principal : Text) : async Types.AuthResult {
+    switch (users.get(principal)) {
+      case (?user) {
+        users.delete(principal);
+        userCount := if (userCount > 0) { userCount - 1 } else { 0 };
+        Debug.print("User deleted: " # principal # " (Total users: " # Nat.toText(userCount) # ")");
+        
+        {
+          success = true;
+          message = ?"User deleted successfully";
+          user = ?user;
+        }
+      };
+      case (null) {
+        {
+          success = false;
+          message = ?"User not found";
+          user = null;
+        }
+      };
+    }
+  };
+
+  // Get system statistics
+  public shared query func get_system_stats() : async {
+    totalUsers : Nat;
+    lastUpgrade : Int;
+  } {
+    {
+      totalUsers = userCount;
+      lastUpgrade = lastUpgradeTime;
+    }
+  };
+
+  // Bulk operations for admin/backup purposes
+  public shared func bulk_update_users(userUpdates : [(Text, Types.User)]) : async Types.AuthResult {
+    try {
+      for ((principal, user) in userUpdates.vals()) {
+        users.put(principal, user);
+      };
+      
+      {
+        success = true;
+        message = ?("Bulk updated " # Nat.toText(userUpdates.size()) # " users");
+        user = null;
+      }
+    } catch (error) {
+      {
+        success = false;
+        message = ?("Bulk update failed: " # Error.message(error));
+        user = null;
+      }
+    }
+  };
+
+  // Export all users for backup
+  public shared query func export_all_users() : async [(Text, Types.User)] {
+    Iter.toArray(users.entries())
+  };
+
+  // Import users from backup
+  public shared func import_users(userData : [(Text, Types.User)]) : async Types.AuthResult {
+    try {
+      for ((principal, user) in userData.vals()) {
+        users.put(principal, user);
+      };
+      
+      userCount := users.size();
+      
+      {
+        success = true;
+        message = ?("Imported " # Nat.toText(userData.size()) # " users");
+        user = null;
+      }
+    } catch (error) {
+      {
+        success = false;
+        message = ?("Import failed: " # Error.message(error));
+        user = null;
+      }
+    }
+  };
+};

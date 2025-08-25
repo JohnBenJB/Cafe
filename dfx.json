@@ -13,8 +13,9 @@
     "storage": {
       "type": "motoko",
       "main": "src/storage/main.mo",
-      "dependencies": ["internet_identity"]
+      "dependencies": ["authentication", "internet_identity"]
     },
+
     "internet_identity": {
       "type": "custom",
       "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
@@ -28,11 +29,7 @@
     },
 
     "frontend": {
-      "dependencies": [
-        "authentication",
-        "table_management",
-        "storage"
-      ],
+      "dependencies": ["authentication", "table_management", "storage"],
       "source": ["frontend/dist"],
       "type": "assets",
       "workspace": "frontend"
