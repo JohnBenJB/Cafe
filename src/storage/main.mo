@@ -1254,10 +1254,15 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Get events since a specific sequence number
   public shared ({ caller }) func getEvents(
+    sessionId : Text,
     fileId : FileId,
     since : Seq,
     maxEvents : Nat
   ) : async Result<{ events : [Event]; nextSince : Seq }, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -1634,7 +1639,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
 
   // Check if client is active
-  public shared ({ caller }) func isClientActive(fileId : FileId, clientId : ClientId) : async Bool {
+  public shared ({ caller }) func isClientActive(sessionId : Text, fileId : FileId, clientId : ClientId) : async Bool {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return false;
@@ -1992,10 +2001,15 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // List versions for a file (paginated)
   public shared ({ caller }) func listVersions(
+    sessionId : Text,
     fileId : FileId,
     offset : Nat,
     limit : Nat
   ) : async Result<Paginated<Commit>, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2037,7 +2051,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get version history (linear chain)
-  public shared ({ caller }) func getVersionHistory(fileId : FileId, fromVersion : Version) : async Result<[Commit], Error> {
+  public shared ({ caller }) func getVersionHistory(sessionId : Text, fileId : FileId, fromVersion : Version) : async Result<[Commit], Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2073,10 +2091,15 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Get differences between two versions (for text files)
   public shared ({ caller }) func getVersionDiff(
+    sessionId : Text,
     fileId : FileId,
     fromVersion : Version,
     toVersion : Version
   ) : async Result<[EditOp], Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2105,10 +2128,15 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Check if one version is ancestor of another
   public shared ({ caller }) func isAncestor(
+    sessionId : Text, 
     fileId : FileId,
     ancestor : Version,
     descendant : Version
   ) : async Result<Bool, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2147,11 +2175,16 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Rollback to a specific version
   func rollbackToVersion(
+    sessionId : Text,
     fileId : FileId,
     targetVersion : Version,
     author : Principal,
     chunks : [ContentChunk]
   ) : Result<Version, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
 
     // Verify target version exists
     switch (getCommit(fileId, targetVersion)) {
@@ -2251,7 +2284,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Delete all versions for a file
-  public shared ({ caller }) func deleteAllVersions(fileId : FileId) : async Result<Nat, Error> {
+  public shared ({ caller }) func deleteAllVersions(sessionId : Text, fileId : FileId) : async Result<Nat, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2276,7 +2313,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   // ===== UTILITY FUNCTIONS =====
 
   // Get version count for a file
-  public shared ({ caller }) func getVersionCount(fileId : FileId) : async Nat {
+  public shared ({ caller }) func getVersionCount(sessionId : Text, fileId : FileId) : async Nat {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return 0;
@@ -2294,7 +2335,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get total storage used by versions
-  public shared ({ caller }) func getVersionStorageUsed(fileId : FileId) : async Nat {
+  public shared ({ caller }) func getVersionStorageUsed(sessionId : Text, fileId : FileId) : async Nat {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return 0;
@@ -2318,7 +2363,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Check if version exists
-  public shared ({ caller }) func versionExists(fileId : FileId, version : Version) : async Bool {
+  public shared ({ caller }) func versionExists(sessionId : Text, fileId : FileId, version : Version) : async Bool {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return false;
@@ -2364,7 +2413,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get commit author
-  public shared ({ caller }) func getCommitAuthor(fileId : FileId, version : Version) : async Result<Principal, Error> {
+  public shared ({ caller }) func getCommitAuthor(sessionId : Text, fileId : FileId, version : Version) : async Result<Principal, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2458,11 +2511,16 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Create a new file
   public shared ({ caller }) func create_file(
+    sessionId : Text,
     name : Text,
     tableId : Nat,
     mime : Text,
     initialContent : ?Blob
   ) : async Result<FileId, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await TableManagement.get_table_collaborators(tableId)) {
       case (#err(error)) {
         return #err(#NotFound);
@@ -2506,7 +2564,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Delete a file
-  public shared ({ caller }) func delete_file(fileId : FileId) : async Result<(), Error> {
+  public shared ({ caller }) func delete_file(sessionId : Text, fileId : FileId) : async Result<(), Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2528,7 +2590,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Restore a deleted file
-  public shared ({ caller }) func restore_file(fileId : FileId) : async Result<(), Error> {
+  public shared ({ caller }) func restore_file(sessionId : Text, fileId : FileId) : async Result<(), Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2554,10 +2620,15 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Update a specific chunk
   public shared ({ caller }) func update_chunk(
+    sessionId : Text, 
     fileId : FileId,
     chunkIndex : Nat,
     data : Blob
   ) : async Result<Version, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2580,9 +2651,14 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Replace file content
   public shared ({ caller }) func replace_file_content(
+    sessionId : Text, 
     fileId : FileId,
     newChunks : [ContentChunk]
   ) : async Result<Version, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2644,7 +2720,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Get current head version
-  public shared ({ caller }) func get_head_version(fileId : FileId) : async Result<Version, Error> {
+  public shared ({ caller }) func get_head_version(sessionId : Text, fileId : FileId) : async Result<Version, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2660,9 +2740,14 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Create a snapshot
   public shared ({ caller }) func create_snapshot(
+    sessionId : Text, 
     fileId : FileId,
     message : ?Text
   ) : async Result<Version, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2690,9 +2775,14 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Rollback to a specific version
   public shared ({ caller }) func rollback_to_version(
+    sessionId : Text, 
     fileId : FileId,
     targetVersion : Version
   ) : async Result<Version, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2744,10 +2834,14 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Apply a patch
   public shared ({ caller }) func apply_patch(
+    sessionId : Text, 
     fileId : FileId,
     patch : Patch
   ) : async Result<{ newVersion : Version; transformed : [EditOp] }, Error> {
-
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     // Check for duplicate operation
     if (isDuplicateOperation(fileId, patch.clientOpId)) {
       return #err(#DuplicateOperation);
@@ -2787,9 +2881,14 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Join a file
   public shared ({ caller }) func join_file(
+    sessionId : Text, 
     fileId : FileId,
     clientId : ClientId
   ) : async Result<{ headVersion : Version; since : Seq }, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (getHeadVersion(fileId)) {
       case (#ok(headVersion)) {
         switch (joinFile(fileId, clientId, caller)) {
@@ -2809,9 +2908,14 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Update cursor
   public shared ({ caller }) func update_cursor(
+    sessionId : Text, 
     fileId : FileId,
     cursor : Cursor
   ) : async Result<(), Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     updatePresence(fileId, cursor.clientId, ?cursor);
   };
 
@@ -2819,9 +2923,14 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Set autosave policy
   public shared ({ caller }) func set_autosave_policy(
+    sessionId : Text, 
     fileId : FileId,
     policy : AutosavePolicy
   ) : async Result<(), Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     await setAutosavePolicy(fileId, policy);
   };
 
@@ -2850,7 +2959,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Process autosave for a file
-  public shared ({ caller }) func process_autosave(fileId : FileId) : async Result<Version, Error> {
+  public shared ({ caller }) func process_autosave(sessionId : Text, fileId : FileId) : async Result<Version, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     switch (autosavePolicies.get(fileId)) {
       case (?state) {
         if (not state.policy.enabled) {
@@ -2974,7 +3087,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
   };
 
   // Clean up old data
-  public shared ({ caller }) func cleanup_old_data() : async Result<{ files : Nat; versions : Nat; events : Nat }, Error> {
+  public shared ({ caller }) func cleanup_old_data(sessionId : Text, ) : async Result<{ files : Nat; versions : Nat; events : Nat }, Error> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     // Only allow cleanup by authorized users (e.g., canister controller)
     if (not Principal.equal(caller, Principal.fromText("2vxsx-fae"))) {
       return #err(#AccessDenied);

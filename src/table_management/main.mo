@@ -49,15 +49,18 @@ actor table_management {
   };
 
    // Create a new table
-  public shared(msg) func create_table(title : Text, description : Text) : async Result<Table, Text> {
+  public shared(msg) func create_table(sessionId : Text, title : Text, description : Text) : async Result<Table, Text> {
     let caller = msg.caller;
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     if (title == "") {
       return #err("Table title required");
     };
     if (description == "") {
       return #err("Table description required");
     };
-    // changed: auth uses Text principal and returns AuthResult
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {
       case null { #err("Principal not a registered user") };
@@ -72,7 +75,6 @@ actor table_management {
           tableCollaborators = [caller];
         };
         tablesById.put(tableId, table);
-        // changed: update auth joined list for creator
         ignore await Auth.update_user_add_table(Principal.toText(caller), tableId);
         #ok(table)
       }
@@ -80,9 +82,12 @@ actor table_management {
   };
 
   // Delete a table
-  public shared(msg) func delete_table(tableId : Nat) : async Result<Table, Text> {
+  public shared(msg) func delete_table(sessionId : Text, tableId : Nat) : async Result<Table, Text> {
     let caller = msg.caller;
-    // changed: use AuthResult and Text principal
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {
       case null #err("Principal not a registered user");
@@ -91,18 +96,13 @@ actor table_management {
         switch (table) {
           case null #err("Table does not exist");
           case (?table) {
-            // changed: only creator can delete
             if (table.creator != caller) {
               return #err("Unauthorized");
             };
-            // Remove tableId from tablesJoined of all users
             for (principal in table.tableCollaborators.vals()) {
               ignore await Auth.update_user_remove_table(Principal.toText(principal), tableId);
             };
-            // Remove table
             ignore tablesById.remove(tableId);
-
-            // Clean up pending requests for this table
             let requestsToRemove = Array.mapFilter<((Principal, Nat), Principal), (Principal, Nat)>(
               Iter.toArray(pendingJoinRequests.entries()),
               func((key, _)) = if (key.1 == tableId) ?key else null
@@ -122,8 +122,12 @@ actor table_management {
   };
 
   // Get user's tables (created and joined) - compute from table data
-  public shared(msg) func get_user_tables() : async Result<UserTables, Text> {
+  public shared(msg) func get_user_tables(sessionId : Text) : async Result<UserTables, Text> {
     let caller = msg.caller;
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {
       case null {
@@ -139,9 +143,12 @@ actor table_management {
   };
 
   // Leave a table
-  public shared(msg) func leave_table(tableId : Nat) : async Result<[Nat], Text> {
+  public shared(msg) func leave_table(sessionId : Text, tableId : Nat) : async Result<[Nat], Text> {
     let caller = msg.caller;
-    // changed: use AuthResult and Text principal
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {
       case null #err("Principal not a registered user");
@@ -149,16 +156,12 @@ actor table_management {
         switch (tablesById.get(tableId)) {
           case null #err("Table does not exist");
           case (?table) {
-            // changed: cannot leave if creator
             if (table.creator == caller) {
               return #err("User cannot leave owned table");
             };
-            // Check if caller is a collaborator
             if (not arrayContains<Principal>(table.tableCollaborators, caller, Principal.equal)) {
               return #err("User not a table collaborator");
             };
-
-            // Remove caller from the table's collaborators (Principal vs Text fixed)
             let updatedTable : Table = {
               id = table.id;
               title = table.title;
@@ -167,7 +170,6 @@ actor table_management {
               tableCollaborators = Array.filter<Principal>(table.tableCollaborators, func (p) = p != caller);
             };
             tablesById.put(tableId, updatedTable);
-            // changed: update auth profile joined list
             ignore await Auth.update_user_remove_table(Principal.toText(caller), tableId);
             #ok(user.tablesJoined)
           }
@@ -196,9 +198,12 @@ actor table_management {
   };
 
    // Request to add a user to a table
-  public shared(msg) func request_join_table(userPrincipal : Principal, tableId : Nat) : async Result<Text, Text> {
+  public shared(msg) func request_join_table(sessionId : Text, userPrincipal : Principal, tableId : Nat) : async Result<Text, Text> {
     let caller = msg.caller;
-    // changed: validate both users exist via AuthResult
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     let creatorRes = await Auth.get_user_by_principal(Principal.toText(caller));
     if (creatorRes.user == null) { return #err("Principal not a registered user"); };
 
@@ -209,15 +214,12 @@ actor table_management {
     switch (tableOpt) {
       case null { #err("Table does not exist") };
       case (?table) {
-        // changed: only creator can invite
         if (table.creator != caller) {
           return #err("Unauthorized");
         };
-        // Check if user is already in the table
         if (arrayContains<Principal>(table.tableCollaborators, userPrincipal, Principal.equal)) {
           return #err("Recipient already a collaborator");
         };
-        // Check if request already exists
         switch(pendingJoinRequests.get((userPrincipal, tableId))) {
           case null {
             pendingJoinRequests.put((userPrincipal, tableId), caller);
@@ -230,9 +232,12 @@ actor table_management {
   };
 
    // Accept a join request to a table
-  public shared(msg) func accept_join_table(tableId : Nat) : async Result<[Nat], Text> {
+  public shared(msg) func accept_join_table(sessionId : Text, tableId : Nat) : async Result<[Nat], Text> {
     let caller = msg.caller;
-
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     // changed: use AuthResult
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {
@@ -272,7 +277,11 @@ actor table_management {
   };
 
   // Cancel a join request (by table creator)
-  public shared(msg) func cancel_join_request(userPrincipal : Principal, tableId : Nat) : async Result<Text, Text> {
+  public shared(msg) func cancel_join_request(sessionId : Text, userPrincipal : Principal, tableId : Nat) : async Result<Text, Text> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     let caller = msg.caller;
     switch (tablesById.get(tableId)) {
       case null #err("Table does not exist.");
@@ -289,7 +298,11 @@ actor table_management {
   };
 
   //Reject a join request (by recipient)
-  public shared(msg) func reject_join_request(tableId : Nat) : async Result<Text, Text> {
+  public shared(msg) func reject_join_request(sessionId : Text, tableId : Nat) : async Result<Text, Text> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     let caller = msg.caller;
     switch (pendingJoinRequests.remove((caller, tableId))) {
       case null #err("Pending request does not exist.");
@@ -298,7 +311,11 @@ actor table_management {
   };
 
   // Get pending sent requests for table created by caller
-  public shared(msg) func get_pending_sent_requests(tableId : Nat) : async Result<[Text], Text> {
+  public shared(msg) func get_pending_sent_requests(sessionId : Text, tableId : Nat) : async Result<[Text], Text> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     let caller = msg.caller;
     switch (tablesById.get(tableId)) {
       case null #err("Table does not exist");
@@ -325,7 +342,11 @@ actor table_management {
     }
   };
   // Get all pending requests recieved by caller
-  public shared(msg) func get_pending_recieved_requests() : async Result<[Nat], Text> {
+  public shared(msg) func get_pending_recieved_requests(sessionId : Text) : async Result<[Nat], Text> {
+    let sessionRes = await Auth.validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return #err("Invalid session");
+    };
     let caller = msg.caller;
     // changed: use AuthResult
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
