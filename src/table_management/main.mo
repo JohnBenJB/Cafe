@@ -55,6 +55,19 @@ actor table_management {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     if (title == "") {
       return #err("Table title required");
     };
@@ -87,6 +100,19 @@ actor table_management {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {
@@ -128,6 +154,19 @@ actor table_management {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {
       case null {
@@ -148,6 +187,19 @@ actor table_management {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {
@@ -204,6 +256,19 @@ actor table_management {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     let creatorRes = await Auth.get_user_by_principal(Principal.toText(caller));
     if (creatorRes.user == null) { return #err("Principal not a registered user"); };
 
@@ -237,6 +302,19 @@ actor table_management {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     // changed: use AuthResult
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
@@ -283,6 +361,19 @@ actor table_management {
       return #err("Invalid session");
     };
     let caller = msg.caller;
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (tablesById.get(tableId)) {
       case null #err("Table does not exist.");
       case (?table) {
@@ -304,6 +395,19 @@ actor table_management {
       return #err("Invalid session");
     };
     let caller = msg.caller;
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (pendingJoinRequests.remove((caller, tableId))) {
       case null #err("Pending request does not exist.");
       case (?_) #ok("Join request rejected.")
@@ -317,6 +421,19 @@ actor table_management {
       return #err("Invalid session");
     };
     let caller = msg.caller;
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (tablesById.get(tableId)) {
       case null #err("Table does not exist");
       case (?table) {
@@ -348,6 +465,19 @@ actor table_management {
       return #err("Invalid session");
     };
     let caller = msg.caller;
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     // changed: use AuthResult
     let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
     switch (authRes.user) {

@@ -1263,6 +1263,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -1644,6 +1657,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return false;
@@ -2010,6 +2036,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2056,6 +2095,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2100,6 +2152,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2134,6 +2199,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     descendant : Version
   ) : async Result<Bool, Error> {
     let sessionRes = await Auth.validate_session(sessionId);
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
@@ -2175,17 +2253,11 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Rollback to a specific version
   func rollbackToVersion(
-    sessionId : Text,
     fileId : FileId,
     targetVersion : Version,
     author : Principal,
     chunks : [ContentChunk]
   ) : Result<Version, Error> {
-    let sessionRes = await Auth.validate_session(sessionId);
-    if (sessionRes.success == false) {
-      return #err("Invalid session");
-    };
-
     // Verify target version exists
     switch (getCommit(fileId, targetVersion)) {
       case (#ok(_)) { /* Version exists */ };
@@ -2289,6 +2361,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2318,6 +2403,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return 0;
@@ -2339,6 +2437,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
@@ -2367,6 +2478,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
@@ -2417,6 +2541,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
@@ -2521,6 +2658,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (await TableManagement.get_table_collaborators(tableId)) {
       case (#err(error)) {
         return #err(#NotFound);
@@ -2569,6 +2719,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2594,6 +2757,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
@@ -2629,6 +2805,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2658,6 +2847,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
@@ -2725,6 +2927,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
         return #err(error);
@@ -2747,6 +2962,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
@@ -2782,6 +3010,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     switch (await hasAccess(fileId, caller)) {
       case (#err(error)) {
@@ -2842,6 +3083,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     // Check for duplicate operation
     if (isDuplicateOperation(fileId, patch.clientOpId)) {
       return #err(#DuplicateOperation);
@@ -2889,6 +3143,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     switch (getHeadVersion(fileId)) {
       case (#ok(headVersion)) {
         switch (joinFile(fileId, clientId, caller)) {
@@ -2916,6 +3183,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     if (sessionRes.success == false) {
       return #err("Invalid session");
     };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     updatePresence(fileId, cursor.clientId, ?cursor);
   };
 
@@ -2930,6 +3210,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     await setAutosavePolicy(fileId, policy);
   };
@@ -2963,6 +3256,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     switch (autosavePolicies.get(fileId)) {
       case (?state) {
@@ -3091,6 +3397,19 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     let sessionRes = await Auth.validate_session(sessionId);
     if (sessionRes.success == false) {
       return #err("Invalid session");
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != caller) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
     };
     // Only allow cleanup by authorized users (e.g., canister controller)
     if (not Principal.equal(caller, Principal.fromText("2vxsx-fae"))) {

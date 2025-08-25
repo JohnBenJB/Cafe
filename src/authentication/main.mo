@@ -113,7 +113,28 @@ shared actor class Authentication() = {
   };
 
   // Register or update user profile
-  public shared func register_or_update(principal : Text, profileData : Types.ProfileUpdateRequest) : async Types.AuthResult {
+  public shared func register_or_update(sessionId : Text, principal : Text, profileData : Types.ProfileUpdateRequest) : async Types.AuthResult {
+    let sessionRes = await validate_session(sessionId);
+    if (sessionRes.success == false) {
+      return {
+        success = false;
+        message = ?"Invalid session";
+        user = null;
+      };
+    };
+    let sessionPrincipal = switch (sessionRes.session) {
+      case (?s) { s.principal };
+      case (null) { "" }; // This case won't occur due to earlier check
+    };
+  
+    // Only allow updating the profile of the logged-in user
+    if (sessionPrincipal != principal) {
+      return {
+        success = false;
+        message = ?"Cannot update another user's profile";
+        user = null;
+      };
+    };
     try {
       let existingUser = users.get(principal);
       
