@@ -170,6 +170,22 @@ actor table_management {
     }
   };
 
+  // Get user's tables (created and joined) - compute from table data
+  public func get_caller_tables(caller : Principal) : async Result<[Nat], Text> {
+    let authRes = await Auth.get_user_by_principal(Principal.toText(caller));
+    switch (authRes.user) {
+      case null {
+        #err("Principal not a registered user")
+      };
+      case (?_user) {
+        let allTables = Iter.toArray(tablesById.vals());
+        let created = Array.mapfilter<Table, Nat>(allTables, func(t) { if (t.creator == caller) t.id});
+        let joined = Array.filter<Table>(allTables, func(t) { if (arrayContains<Principal>(t.tableCollaborators, caller, Principal.equal)) t.id});
+        #ok(Array.append(created, joined))
+      }
+    }
+  };
+
   // Leave a table
   public shared(msg) func leave_table(sessionId : Text, tableId : Nat) : async Result<[Nat], Text> {
     let caller = msg.caller;

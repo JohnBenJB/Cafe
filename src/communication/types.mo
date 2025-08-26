@@ -19,7 +19,6 @@ module {
   
   // Unique identifiers
   public type ChatId = Nat32;
-  public type Nat = Nat32;
   public type UserPrincipal = Principal;
   
   // ===== CHAT TYPES =====
@@ -28,9 +27,9 @@ module {
   public type ChatInfo = {
     id : ChatId; //might not be a necessary field
     tableId : Nat;
-    participants : [Principal];
+    // var participants : [Principal];
     createdAt : Time.Time;
-    lastMessageAt : Time.Time;
+    var lastMessageAt : Time.Time;
     isActive : Bool;
   };
   
@@ -38,8 +37,8 @@ module {
   public type Chat = {
     info : ChatInfo;
     messages : HashMap.HashMap<Nat, Message>;
-    nextNat : Nat;
-    participants : HashMap.HashMap<Principal, ParticipantInfo>; // Maps user IDs to participant info
+    var nextNat : Nat;
+    // participants : HashMap.HashMap<Principal, ParticipantInfo>; // Maps user IDs to participant info
   };
   
   // Participant information
@@ -148,7 +147,7 @@ module {
   public func validateMessageContent(content : MessageContent) : Bool {
     switch (content) {
       case (#Text(text)) {
-        Text.size(text) <= Nat32.toNat(MAX_MESSAGE_LENGTH) and Text.size(text) > 0;
+        Text.size(text) <= MAX_MESSAGE_LENGTH and Text.size(text) > 0;
       };
       case (#System(text)) {
         Text.size(text) > 0;

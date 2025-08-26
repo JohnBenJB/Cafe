@@ -15,6 +15,8 @@ import Hash "mo:base/Hash";
 import Iter "mo:base/Iter";
 import Error "mo:base/Error";
 import Debug "mo:base/Debug";
+import TableManagement "canister:table_management";
+import Auth "canister:authentication";
 
 // ===== COMMUNICATION CANISTER MAIN MODULE =====
 // Handles chat functionality for collaborative tables
@@ -22,10 +24,9 @@ import Debug "mo:base/Debug";
 actor {
   // Import types
   public type ChatId = Types.ChatId;
-  public type Nat = Types.Nat;
   public type ChatInfo = Types.ChatInfo;
   public type Chat = Types.Chat;
-  public type ParticipantInfo = Types.ParticipantInfo;
+  // public type ParticipantInfo = Types.ParticipantInfo;
   public type Message = Types.Message;
   public type MessageResponse = Types.MessageResponse;
   public type MessageContent = Types.MessageContent;
@@ -51,46 +52,83 @@ actor {
     info : ChatInfo;
     messages : [(Nat, Message)] ;
     nextNat : Nat;
-    participants : [(Principal, ParticipantInfo)];
+    // participants : [(Principal, ParticipantInfo)];
+  };
+  public type ChatInfoView = {
+    id : ChatId;
+    tableId : Nat;
+    // participants : [Principal];
+    createdAt : Time.Time;
+    lastMessageAt : Time.Time;
+    isActive : Bool;
   };
 
   // ===== CONVERSION FUNCTIONS =====
-
+  func infoToChatInfoView(chatInfo : ChatInfo) : ChatInfoView {
+    {
+      id = chatInfo.id;
+      tableId = chatInfo.tableId;
+      // participants = chatInfo.participants;
+      createdAt = chatInfo.createdAt;
+      lastMessageAt = chatInfo.lastMessageAt;
+      isActive = chatInfo.isActive;
+    }
+  };
   // Convert Chat to StableChat
   func chatToStable(chat : Chat) : StableChat {
     {
       info = chat.info;
       messages = Iter.toArray(chat.messages.entries());
       nextNat = chat.nextNat;
-      participants = Iter.toArray(chat.participants.entries());
+      // participants = Iter.toArray(chat.participants.entries());
     }
   };
   // Convert StableChat to Chat
   func stableToChat(stableStorage : StableChat) : Chat {
     let messages = HashMap.HashMap<Nat, Message>(0, Nat.equal, Hash.hash);
-    for ((id, msg) in stableStorage.messages) {
+    for ((id, msg) in stableStorage.messages.vals()) {
       messages.put(id, msg);
     };
-    let participants = HashMap.HashMap<Principal, ParticipantInfo>(0, Principal.equal, Principal.hash);
-    for ((user, info) in stableStorage.participants) {
-      participants.put(user, info);
-    };
+    // let participants = HashMap.HashMap<Principal, ParticipantInfo>(0, Principal.equal, Principal.hash);
+    // for ((user, info) in stableStorage.participants.vals()) {
+    //   participants.put(user, info);
+    // };
     {
-      var meta = stableStorage.meta;
-      var access = stableStorage.access;
-      var chunks = chunks;
-      var headVersion = stableStorage.headVersion;
-      var isDeleted = stableStorage.isDeleted;
+      info = stableStorage.info;
+      messages = messages;
+      var nextNat = stableStorage.nextNat;
+      // participants = participants;
     }
   };
 
   stable var stableChats : [(ChatId, StableChat)] = [];
   stable var stableChatsByTable : [(Nat, ChatId)] = [];
 
+  // Helper function to check if array contains element
+  func arrayContains<T>(arr : [T], elem : T, equal : (T, T) -> Bool) : Bool {
+    switch (Array.find<T>(arr, func(x) = equal(x, elem))) {
+      case (?_) true;
+      case null false;
+    }
+  };
+
+  func isTableCollaborator(caller : Principal, tableId : Nat) : async Bool {
+    switch (await TableManagement.get_caller_tables(caller)) {
+      case (#err(_)) { false };
+      case (#ok(tables)) {
+        if (arrayContains<Nat>(tables, tableId, Nat.equal)) {
+          return true;
+        } else {
+          return false;
+        };
+      };
+    };
+  };
+
   system func preupgrade() {
     // Serialize chats
     let chatsArr : [(ChatId, Chat)] = Iter.toArray(chats.entries());
-    let stableChats : [(ChatId, StableChat)]  = Array.map<(ChatId, Chat), (ChatId, StableChat)>(chatsArr.entries(), func (pair) {let (chatId, chat) = pair; (chatId, chatToStable(chat))});
+    let stableChats : [(ChatId, StableChat)]  = Array.map<(ChatId, Chat), (ChatId, StableChat)>(chatsArr, func (pair) {let (chatId, chat) = pair; (chatId, chatToStable(chat))});
     
     
     // Serialize table-chat mappings
@@ -104,7 +142,7 @@ actor {
   system func postupgrade() {
     // Restore chats
     // Restore file storage using stable conversion
-    for ((chatId, stableChat) in stableChats) {
+    for ((chatId, stableChat) in stableChats.vals()) {
       let chat = stableToChat(stableChat);
       chats.put(chatId, chat);
     };
@@ -122,13 +160,13 @@ actor {
   // ===== STATE MANAGEMENT =====
 
   // Chat storage
-  var chats = HashMap.HashMap<ChatId, Chat>(0, Nat32.equal, func(x : Nat32) : Nat { Nat32.toNat(x) });
+  var chats = HashMap.HashMap<ChatId, Chat>(0, Nat32.equal, func(x : Nat32) :  Nat32 { x });
 
   // Table to chat mapping (one chat per table)
   var chatsByTable = HashMap.HashMap<Nat, ChatId>(0, Nat.equal, Hash.hash);
 
   // User typing status
-  var typingUsers = HashMap.HashMap<ChatId, HashMap.HashMap<Principal, Time.Time>>(0, Nat32.equal, Hash.hash);
+  var typingUsers = HashMap.HashMap<ChatId, HashMap.HashMap<Principal, Time.Time>>(0, Nat32.equal, func(x : Nat32) :  Nat32 { x });
 
   // ===== CHAT MANAGEMENT =====
 
@@ -162,30 +200,31 @@ actor {
     let chatInfo : ChatInfo = {
       id = chatId;
       tableId = tableId;
-      participants = [caller]; // Creator is first participant
+      // var participants = [caller]; // Creator is first participant
       createdAt = now;
-      lastMessageAt = now;
+      var lastMessageAt = now;
       isActive = true;
     };
     
-    // Create participant info for creator
-    let participantInfo : ParticipantInfo = {
-      userPrincipal = caller;
-      joinedAt = now;
-      lastSeen = now;
-      isActive = true;
-    };
-    
+    // // Create participant info for creator
+    // let participantInfo : ParticipantInfo = {
+    //   userPrincipal = caller;
+    //   joinedAt = now;
+    //   lastSeen = now;
+    //   isActive = true;
+    // };
+    let messages = HashMap.HashMap<Nat, Message>(0, Nat.equal, Hash.hash);
+    // let participants = HashMap.HashMap<Principal, ParticipantInfo>(0, Principal.equal, Principal.hash);
     // Create chat
     let chat : Chat = {
       info = chatInfo;
-      messages = HashMap.HashMap<Nat, Message>(0, Nat32.equal, Hash.hash);
-      participants = HashMap.HashMap<Principal, ParticipantInfo>(0, Principal.equal, Principal.hash);
-      nextNat = 0;
+      messages = messages;
+      // participants = participants;
+      var nextNat = 0;
     };
     
     // Add creator as participant
-    chat.participants.put(caller, participantInfo);
+    // chat.participants.put(caller, participantInfo);
     
     // Store chat
     chats.put(chatId, chat);
@@ -195,7 +234,7 @@ actor {
     let systemMessage : Message = {
       id = chat.nextNat;
       chatId = chatId;
-      senderId = caller;
+      senderPrincipal = caller;
       content = #System("Chat created");
       timestamp = now;
       isEdited = false;
@@ -210,10 +249,10 @@ actor {
   };
 
   // Get chat information
-  public query func get_chat_info(chatId : ChatId) : async Result<ChatInfo, Error> {
+  public query func get_chat_info(chatId : ChatId) : async Result<ChatInfoView, Error> {
     switch (chats.get(chatId)) {
       case (?chat) {
-        #Ok(chat.info);
+        #Ok(infoToChatInfoView(chat.info));
       };
       case null { #Err(#NotFound) };
     };
@@ -227,165 +266,165 @@ actor {
     };
   };
 
-  // List all chats for a user
-  public query func list_user_chats(userPrincipal : Principal) : async Result<[ChatInfo], Error> {
-    let userChats = Buffer.Buffer<ChatInfo>(0);
+  // // List all chats for a user
+  // public query func list_user_chats(userPrincipal : Principal) : async Result<[ChatInfo], Error> {
+  //   let userChats = Buffer.Buffer<ChatInfo>(0);
     
-    for ((_, chat) in chats.entries()) {
-      if (Types.isUserInChat(userPrincipal, chat.info.participants)) {
-        userChats.add(chat.info);
-      };
-    };
+  //   for ((_, chat) in chats.entries()) {
+  //     if (Types.isUserInChat(userPrincipal, chat.info.participants)) {
+  //       userChats.add(chat.info);
+  //     };
+  //   };
     
-    #Ok(Buffer.toArray(userChats));
-  };
+  //   #Ok(Buffer.toArray(userChats));
+  // };
 
   // ===== PARTICIPANT MANAGEMENT =====
 
-  // Add participant to chat
-  public shared ({ caller }) func add_participant(
-    chatId : ChatId,
-    newParticipant : Principal
-  ) : async Result<(), Error> {
+  // // Add participant to chat
+  // public shared ({ caller }) func add_participant(
+  //   chatId : ChatId,
+  //   newParticipant : Principal
+  // ) : async Result<(), Error> {
     
-    switch (chats.get(chatId)) {
-      case (?chat) {
-        // Check if caller is already a participant
-        if (not Types.isUserInChat(caller, chat.info.participants)) {
-          return #Err(#AccessDenied);
-        };
+  //   switch (chats.get(chatId)) {
+  //     case (?chat) {
+  //       // Check if caller is already a participant
+  //       if (not Types.isUserInChat(caller, chat.info.participants)) {
+  //         return #Err(#AccessDenied);
+  //       };
         
-        // Check if new participant is already in chat
-        if (Types.isUserInChat(newParticipant, chat.info.participants)) {
-          return #Err(#InvalidOperation);
-        };
+  //       // Check if new participant is already in chat
+  //       if (Types.isUserInChat(newParticipant, chat.info.participants)) {
+  //         return #Err(#InvalidOperation);
+  //       };
         
-        // Check if chat is full
-        if (chat.info.participants.size() >= Types.MAX_CHAT_PARTICIPANTS) {
-          return #Err(#ChatFull);
-        };
+  //       // Check if chat is full
+  //       if (chat.info.participants.size() >= Nat32.toNat(Types.MAX_CHAT_PARTICIPANTS)) {
+  //         return #Err(#ChatFull);
+  //       };
         
-        // Add participant
-        let now = Types.now();
-        let participantInfo : ParticipantInfo = {
-          userPrincipal = newParticipant;
-          joinedAt = now;
-          lastSeen = now;
-          isActive = true;
-        };
+  //       // Add participant
+  //       let now = Types.now();
+  //       let participantInfo : ParticipantInfo = {
+  //         userPrincipal = newParticipant;
+  //         joinedAt = now;
+  //         lastSeen = now;
+  //         isActive = true;
+  //       };
         
-        chat.participants.put(newParticipant, participantInfo);
+  //       chat.participants.put(newParticipant, participantInfo);
         
-        // Update chat info
-        let newParticipants = Array.append(chat.info.participants, [newParticipant]);
-        chat.info.participants := newParticipants;
+  //       // Update chat info
+  //       let newParticipants = Array.append(chat.info.participants, [newParticipant]);
+  //       chat.info.participants := newParticipants;
         
-        // Create system message
-        let systemMessage : Message = {
-          id = chat.nextNat;
-          chatId = chatId;
-          senderId = newParticipant;
-          content = #System("User joined the chat");
-          timestamp = now;
-          isEdited = false;
-          isDeleted = false;
-          replyTo = null;
-        };
+  //       // Create system message
+  //       let systemMessage : Message = {
+  //         id = chat.nextNat;
+  //         chatId = chatId;
+  //         senderPrincipal = newParticipant;
+  //         content = #System("User joined the chat");
+  //         timestamp = now;
+  //         isEdited = false;
+  //         isDeleted = false;
+  //         replyTo = null;
+  //       };
         
-        chat.messages.put(chat.nextNat, systemMessage);
-        chat.nextNat += 1;
+  //       chat.messages.put(chat.nextNat, systemMessage);
+  //       chat.nextNat += 1;
         
-        #Ok(());
-      };
-      case null { #Err(#NotFound) };
-    };
-  };
+  //       #Ok(());
+  //     };
+  //     case null { #Err(#NotFound) };
+  //   };
+  // };
 
-  // Remove participant from chat
-  public shared ({ caller }) func remove_participant(
-    chatId : ChatId,
-    participantToRemove : Principal
-  ) : async Result<(), Error> {
+  // // Remove participant from chat
+  // public shared ({ caller }) func remove_participant(
+  //   chatId : ChatId,
+  //   participantToRemove : Principal
+  // ) : async Result<(), Error> {
     
-    switch (chats.get(chatId)) {
-      case (?chat) {
-        // Check if caller is a participant
-        if (not Types.isUserInChat(caller, chat.info.participants)) {
-          return #Err(#AccessDenied);
-        };
+  //   switch (chats.get(chatId)) {
+  //     case (?chat) {
+  //       // Check if caller is a participant
+  //       if (not Types.isUserInChat(caller, chat.info.participants)) {
+  //         return #Err(#AccessDenied);
+  //       };
         
-        // Check if participant to remove is in chat
-        if (not Types.isUserInChat(participantToRemove, chat.info.participants)) {
-          return #Err(#UserNotInChat);
-        };
+  //       // Check if participant to remove is in chat
+  //       if (not Types.isUserInChat(participantToRemove, chat.info.participants)) {
+  //         return #Err(#UserNotInChat);
+  //       };
         
-        // Remove participant
-        chat.participants.delete(participantToRemove);
+  //       // Remove participant
+  //       chat.participants.delete(participantToRemove);
         
-        // Update chat info
-        let filteredParticipants = Array.filter<Principal>(
-          chat.info.participants,
-          func(p : Principal) : Bool { not Principal.equal(p, participantToRemove) }
-        );
-        chat.info.participants := filteredParticipants;
+  //       // Update chat info
+  //       let filteredParticipants = Array.filter<Principal>(
+  //         chat.info.participants,
+  //         func(p : Principal) : Bool { not Principal.equal(p, participantToRemove) }
+  //       );
+  //       chat.info.participants := filteredParticipants;
         
-        // Create system message
-        let now = Types.now();
-        let systemMessage : Message = {
-          id = chat.nextNat;
-          chatId = chatId;
-          senderId = participantToRemove;
-          content = #System("User left the chat");
-          timestamp = now;
-          isEdited = false;
-          isDeleted = false;
-          replyTo = null;
-        };
+  //       // Create system message
+  //       let now = Types.now();
+  //       let systemMessage : Message = {
+  //         id = chat.nextNat;
+  //         chatId = chatId;
+  //         senderPrincipal = participantToRemove;
+  //         content = #System("User left the chat");
+  //         timestamp = now;
+  //         isEdited = false;
+  //         isDeleted = false;
+  //         replyTo = null;
+  //       };
         
-        chat.messages.put(chat.nextNat, systemMessage);
-        chat.nextNat += 1;
+  //       chat.messages.put(chat.nextNat, systemMessage);
+  //       chat.nextNat += 1;
         
-        #Ok(());
-      };
-      case null { #Err(#NotFound) };
-    };
-  };
+  //       #Ok(());
+  //     };
+  //     case null { #Err(#NotFound) };
+  //   };
+  // };
 
   // Get chat participants
-  public query func get_chat_participants(chatId : ChatId) : async Result<[ParticipantInfo], Error> {
-    switch (chats.get(chatId)) {
-      case (?chat) {
-        let participants = Buffer.Buffer<ParticipantInfo>(0);
-        for ((_, participant) in chat.participants.entries()) {
-          participants.add(participant);
-        };
-        #Ok(Buffer.toArray(participants));
-      };
-      case null { #Err(#NotFound) };
-    };
-  };
+  // public query func get_chat_participants(chatId : ChatId) : async Result<[ParticipantInfo], Error> {
+  //   switch (chats.get(chatId)) {
+  //     case (?chat) {
+  //       let participants = Buffer.Buffer<ParticipantInfo>(0);
+  //       for ((_, participant) in chat.participants.entries()) {
+  //         participants.add(participant);
+  //       };
+  //       #Ok(Buffer.toArray(participants));
+  //     };
+  //     case null { #Err(#NotFound) };
+  //   };
+  // };
 
-  // Update user's last seen time
-  public shared ({ caller }) func update_last_seen(chatId : ChatId) : async Result<(), Error> {
-    switch (chats.get(chatId)) {
-      case (?chat) {
-        switch (chat.participants.get(caller)) {
-          case (?participant) {
-            let updatedParticipant : ParticipantInfo = {
-              userPrincipal = caller;
-              joinedAt = participant.joinedAt;
-              lastSeen = Types.now();
-              isActive = true;
-            };
-            chat.participants.put(caller, updatedParticipant);
-            #Ok(());
-          };
-          case null { #Err(#UserNotInChat) };
-        };
-      };
-      case null { #Err(#NotFound) };
-    };
-  };
+  // // Update user's last seen time
+  // public shared ({ caller }) func update_last_seen(chatId : ChatId) : async Result<(), Error> {
+  //   switch (chats.get(chatId)) {
+  //     case (?chat) {
+  //       switch (chat.participants.get(caller)) {
+  //         case (?participant) {
+  //           let updatedParticipant : ParticipantInfo = {
+  //             userPrincipal = caller;
+  //             joinedAt = participant.joinedAt;
+  //             lastSeen = Types.now();
+  //             isActive = true;
+  //           };
+  //           chat.participants.put(caller, updatedParticipant);
+  //           #Ok(());
+  //         };
+  //         case null { #Err(#UserNotInChat) };
+  //       };
+  //     };
+  //     case null { #Err(#NotFound) };
+  //   };
+  // };
 
   // ===== MESSAGE MANAGEMENT =====
 
@@ -403,17 +442,21 @@ actor {
     switch (chats.get(chatId)) {
       case (?chat) {
         // Check if user is in chat
-        if (not Types.isUserInChat(caller, chat.info.participants)) {
-          return #Err(#UserNotInChat);
+        let isAuthorized : Bool = await isTableCollaborator(caller, chat.info.tableId);
+        switch (isAuthorized) {
+          case true {};
+          case false {    
+              return #Err(#UserNotInChat);
+          };
         };
         
         // Create message
         let now = Types.now();
-        let Nat = chat.nextNat;
+        let newNat = chat.nextNat;
         let message : Message = {
-          id = Nat;
+          id = newNat;
           chatId = chatId;
-          senderId = caller;
+          senderPrincipal = caller;
           content = content;
           timestamp = now;
           isEdited = false;
@@ -422,27 +465,27 @@ actor {
         };
         
         // Store message
-        chat.messages.put(Nat, message);
+        chat.messages.put(newNat, message);
         chat.nextNat += 1;
         
         // Update chat's last message time
         chat.info.lastMessageAt := now;
         
-        // Update user's last seen time
-        switch (chat.participants.get(caller)) {
-          case (?participant) {
-            let updatedParticipant : ParticipantInfo = {
-              userPrincipal = caller;
-              joinedAt = participant.joinedAt;
-              lastSeen = now;
-              isActive = true;
-            };
-            chat.participants.put(caller, updatedParticipant);
-          };
-          case null { /* Shouldn't happen */ };
-        };
+        // // Update user's last seen time
+        // switch (chat.participants.get(caller)) {
+        //   case (?participant) {
+        //     let updatedParticipant : ParticipantInfo = {
+        //       userPrincipal = caller;
+        //       joinedAt = participant.joinedAt;
+        //       lastSeen = now;
+        //       isActive = true;
+        //     };
+        //     chat.participants.put(caller, updatedParticipant);
+        //   };
+        //   case null { /* Shouldn't happen */ };
+        // };
         
-        #Ok(Nat);
+        #Ok(newNat);
       };
       case null { #Err(#NotFound) };
     };
@@ -470,10 +513,20 @@ actor {
           total += 1;
           if (messages.size() < limit and total > offset) {
             // Convert to MessageResponse (simplified - in real app you'd resolve sender name)
+            let sender = await Auth.get_profile(message.senderPrincipal);
+            let senderName : Text = "";
+            switch (sender.user) {
+              case (?profile) {
+                senderName := profile.username;
+              };
+              case null { /* Use principal text as fallback */
+                return #err(#NotFound);
+              };
+            };
             let messageResponse : MessageResponse = {
               id = message.id;
-              senderId = message.senderId;
-              senderName = Principal.toText(message.senderId); // Simplified
+              senderPrincipal = message.senderPrincipal;
+              senderName = senderName;
               content = message.content;
               timestamp = message.timestamp;
               isEdited = message.isEdited;
@@ -499,7 +552,7 @@ actor {
   // Edit a message
   public shared ({ caller }) func edit_message(
     chatId : ChatId,
-    Nat : Nat,
+    messageId : Nat,
     newContent : MessageContent
   ) : async Result<(), Error> {
     
@@ -511,15 +564,19 @@ actor {
     switch (chats.get(chatId)) {
       case (?chat) {
         // Check if user is in chat
-        if (not Types.isUserInChat(caller, chat.info.participants)) {
-          return #Err(#UserNotInChat);
+        let isAuthorized : Bool = await isTableCollaborator(caller, chat.info.tableId);
+        switch (isAuthorized) {
+          case true {};
+          case false {    
+              return #Err(#UserNotInChat);
+          };
         };
         
         // Get message
-        switch (chat.messages.get(Nat)) {
+        switch (chat.messages.get(messageId)) {
           case (?message) {
             // Check if user is the sender
-            if (not Principal.equal(caller, message.senderId)) {
+            if (not Principal.equal(caller, message.senderPrincipal)) {
               return #Err(#AccessDenied);
             };
             
@@ -527,7 +584,7 @@ actor {
             let updatedMessage : Message = {
               id = message.id;
               chatId = message.chatId;
-              senderId = message.senderId;
+              senderPrincipal = message.senderPrincipal;
               content = newContent;
               timestamp = message.timestamp;
               isEdited = true;
@@ -535,7 +592,7 @@ actor {
               replyTo = message.replyTo;
             };
             
-            chat.messages.put(Nat, updatedMessage);
+            chat.messages.put(messageId, updatedMessage);
             #Ok(());
           };
           case null { #Err(#NotFound) };
@@ -548,21 +605,25 @@ actor {
   // Delete a message
   public shared ({ caller }) func delete_message(
     chatId : ChatId,
-    Nat : Nat
+    messageId : Nat
   ) : async Result<(), Error> {
     
     switch (chats.get(chatId)) {
       case (?chat) {
         // Check if user is in chat
-        if (not Types.isUserInChat(caller, chat.info.participants)) {
-          return #Err(#UserNotInChat);
+        let isAuthorized : Bool = await isTableCollaborator(caller, chat.info.tableId);
+        switch (isAuthorized) {
+          case true {};
+          case false {    
+              return #Err(#UserNotInChat);
+          };
         };
         
         // Get message
-        switch (chat.messages.get(Nat)) {
+        switch (chat.messages.get(messageId)) {
           case (?message) {
             // Check if user is the sender
-            if (not Principal.equal(caller, message.senderId)) {
+            if (not Principal.equal(caller, message.senderPrincipal)) {
               return #Err(#AccessDenied);
             };
             
@@ -570,7 +631,7 @@ actor {
             let updatedMessage : Message = {
               id = message.id;
               chatId = message.chatId;
-              senderId = message.senderId;
+              senderPrincipal = message.senderPrincipal;
               content = message.content;
               timestamp = message.timestamp;
               isEdited = message.isEdited;
@@ -578,7 +639,7 @@ actor {
               replyTo = message.replyTo;
             };
             
-            chat.messages.put(Nat, updatedMessage);
+            chat.messages.put(messageId, updatedMessage);
             #Ok(());
           };
           case null { #Err(#NotFound) };
@@ -599,10 +660,13 @@ actor {
     switch (chats.get(chatId)) {
       case (?chat) {
         // Check if user is in chat
-        if (not Types.isUserInChat(caller, chat.info.participants)) {
-          return #Err(#UserNotInChat);
+        let isAuthorized : Bool = await isTableCollaborator(caller, chat.info.tableId);
+        switch (isAuthorized) {
+          case true {};
+          case false {    
+              return #Err(#UserNotInChat);
+          };
         };
-        
         switch (typingUsers.get(chatId)) {
           case (?chatTypingUsers) {
             if (isTyping) {
@@ -649,11 +713,10 @@ actor {
   // ===== UTILITY FUNCTIONS =====
 
   // Get chat statistics
-  public query func get_chat_stats(chatId : ChatId) : async Result<{ participantCount : Nat; messageCount : Nat; lastMessageAt : Time.Time }, Error> {
+  public query func get_chat_stats(chatId : ChatId) : async Result<{messageCount : Nat; lastMessageAt : Time.Time }, Error> {
     switch (chats.get(chatId)) {
       case (?chat) {
         #Ok({
-          participantCount = chat.info.participants.size();
           messageCount = chat.messages.size();
           lastMessageAt = chat.info.lastMessageAt;
         });
@@ -663,10 +726,10 @@ actor {
   };
 
   // Get all chats (for admin purposes)
-  public query func get_all_chats() : async Result<[ChatInfo], Error> {
-    let allChats = Buffer.Buffer<ChatInfo>(0);
+  public query func get_all_chats() : async Result<[ChatInfoView], Error> {
+    let allChats = Buffer.Buffer<ChatInfoView>(0);
     for ((_, chat) in chats.entries()) {
-      allChats.add(chat.info);
+      allChats.add(infoToChatInfoView(chat.info));
     };
     #Ok(Buffer.toArray(allChats));
   };
