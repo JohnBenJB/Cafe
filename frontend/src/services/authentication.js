@@ -126,6 +126,37 @@ class AuthenticationService {
       throw error;
     }
   }
+
+  // ===== Session management (frontend wrappers) =====
+  async createSession(principal) {
+    if (!this.actor) {
+      throw new Error("Authentication service not initialized");
+    }
+    const res = await this.actor.create_session(principal);
+    return res;
+  }
+
+  async validateSession(sessionId) {
+    if (!this.actor) {
+      throw new Error("Authentication service not initialized");
+    }
+    return await this.actor.validate_session(sessionId);
+  }
+
+  async logout(sessionId) {
+    if (!this.actor) {
+      throw new Error("Authentication service not initialized");
+    }
+    return await this.actor.logout(sessionId);
+  }
+
+  async getProfile(principal) {
+    if (!this.actor) {
+      throw new Error("Authentication service not initialized");
+    }
+    const res = await this.actor.get_profile(principal);
+    return { ...res, user: this.unwrapOptionalUser(res?.user) };
+  }
 }
 
 export const authenticationService = new AuthenticationService();

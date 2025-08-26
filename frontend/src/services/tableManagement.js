@@ -1,6 +1,7 @@
 import { Actor, HttpAgent } from "@dfinity/agent";
 import { Principal } from "@dfinity/principal";
 import { idlFactory } from "./table_management_idl";
+import internetIdentityService from "./internetIdentity";
 
 // Table Management Canister ID
 const TABLE_MANAGEMENT_CANISTER_ID =
@@ -47,7 +48,12 @@ class TableManagementService {
     }
 
     try {
-      const result = await this.actor.create_table(title, description);
+      const sessionId = internetIdentityService.getSessionId();
+      const result = await this.actor.create_table(
+        sessionId,
+        title,
+        description
+      );
 
       if ("ok" in result) {
         return result.ok;
@@ -66,7 +72,8 @@ class TableManagementService {
     }
 
     try {
-      const result = await this.actor.get_user_tables();
+      const sessionId = internetIdentityService.getSessionId();
+      const result = await this.actor.get_user_tables(sessionId);
 
       if ("ok" in result) {
         return result.ok;
@@ -144,7 +151,12 @@ class TableManagementService {
         console.log("Using principal as-is:", principalObj);
       }
 
-      const result = await this.actor.request_join_table(principalObj, tableId);
+      const sessionId = internetIdentityService.getSessionId();
+      const result = await this.actor.request_join_table(
+        sessionId,
+        principalObj,
+        tableId
+      );
 
       if ("ok" in result) {
         return result.ok;
@@ -163,7 +175,8 @@ class TableManagementService {
     }
 
     try {
-      const result = await this.actor.accept_join_table(tableId);
+      const sessionId = internetIdentityService.getSessionId();
+      const result = await this.actor.accept_join_table(sessionId, tableId);
 
       if ("ok" in result) {
         return result.ok;
@@ -182,7 +195,8 @@ class TableManagementService {
     }
 
     try {
-      const result = await this.actor.reject_join_request(tableId);
+      const sessionId = internetIdentityService.getSessionId();
+      const result = await this.actor.reject_join_request(sessionId, tableId);
 
       if ("ok" in result) {
         return result.ok;
@@ -208,7 +222,9 @@ class TableManagementService {
         principalObj = userPrincipal;
       }
 
+      const sessionId = internetIdentityService.getSessionId();
       const result = await this.actor.cancel_join_request(
+        sessionId,
         principalObj,
         tableId
       );
@@ -230,7 +246,8 @@ class TableManagementService {
     }
 
     try {
-      const result = await this.actor.leave_table(tableId);
+      const sessionId = internetIdentityService.getSessionId();
+      const result = await this.actor.leave_table(sessionId, tableId);
 
       if ("ok" in result) {
         return result.ok;
@@ -249,7 +266,8 @@ class TableManagementService {
     }
 
     try {
-      const result = await this.actor.delete_table(tableId);
+      const sessionId = internetIdentityService.getSessionId();
+      const result = await this.actor.delete_table(sessionId, tableId);
 
       if ("ok" in result) {
         return result.ok;
@@ -287,7 +305,11 @@ class TableManagementService {
     }
 
     try {
-      const result = await this.actor.get_pending_sent_requests(tableId);
+      const sessionId = internetIdentityService.getSessionId();
+      const result = await this.actor.get_pending_sent_requests(
+        sessionId,
+        tableId
+      );
 
       if ("ok" in result) {
         return result.ok;
@@ -306,7 +328,8 @@ class TableManagementService {
     }
 
     try {
-      const result = await this.actor.get_pending_recieved_requests();
+      const sessionId = internetIdentityService.getSessionId();
+      const result = await this.actor.get_pending_recieved_requests(sessionId);
 
       if ("ok" in result) {
         return result.ok;

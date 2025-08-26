@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import "./MonacoCollaborativeEditor.css";
 
-const MonacoEditor = ({ files, onFileChange }) => {
+const MonacoEditor = ({ files, onFileChange, onCreateFile }) => {
   const [activeFile, setActiveFile] = useState(files[0] || null);
   const [editorContent, setEditorContent] = useState("");
   const [editorInstance, setEditorInstance] = useState(null);
@@ -97,304 +97,86 @@ const MonacoEditor = ({ files, onFileChange }) => {
     }
   };
 
-  const handleCreateNewFile = () => {
+  const [showNewFileInput, setShowNewFileInput] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
+
+  const createNewEmptyFile = (name) => {
+    const clean = (name || "").trim();
+    if (!clean) return null;
+
+    const language = detectLanguageFromFileName(clean);
     const newFile = {
       id: nextFileId,
-      name: `new-file-${nextFileId}.js`,
-      content: getDefaultContentForLanguage(selectedLanguage),
-      language: selectedLanguage,
+      name: clean,
+      content: "",
+      language,
       isActive: false,
     };
 
-    // Update the parent component with the new file
+    // Notify parent to add file
     if (onFileChange) {
-      // Notify parent about the new file (we'll use a special format)
-      // The parent can handle adding it to the files array
       onFileChange(`new-${nextFileId}`, newFile.content, newFile);
+    }
 
-      // Set the new file as active
-      setActiveFile(newFile);
-      setEditorContent(newFile.content);
+    // Set as active locally
+    setActiveFile(newFile);
+    setEditorContent("");
+    setSelectedLanguage(language);
+    setNextFileId(nextFileId + 1);
 
-      // Increment the next file ID
-      setNextFileId(nextFileId + 1);
+    return newFile;
+  };
+
+  const handleCreateNewFile = () => {
+    setShowNewFileInput((prev) => !prev);
+    setNewFileName("");
+  };
+
+  const confirmCreateNewFile = async () => {
+    const clean = (newFileName || "").trim();
+    if (!clean) return;
+
+    if (typeof onCreateFile === "function") {
+      try {
+        const created = await onCreateFile(clean);
+        if (created && created.id) {
+          // Activate returned file
+          setActiveFile(created);
+          setEditorContent(created.content || "");
+          setSelectedLanguage(
+            created.language || detectLanguageFromFileName(created.name)
+          );
+          setShowNewFileInput(false);
+          setNewFileName("");
+          // Ensure nextFileId stays ahead
+          setNextFileId((n) => (created.id >= n ? Number(created.id) + 1 : n));
+          return;
+        }
+      } catch (e) {
+        console.error("Remote create_file failed:", e);
+        // fall through to local creation if desired, or keep input open
+        return;
+      }
+    } else {
+      console.error("onCreateFile is not a function");
+    }
+
+    const f = createNewEmptyFile(clean);
+    if (f) {
+      setShowNewFileInput(false);
+      setNewFileName("");
     }
   };
 
-  const getDefaultContentForLanguage = (language) => {
-    const defaultContent = {
-      javascript: `// New JavaScript file
-console.log("Hello, World!");
-
-function greet(name) {
-  return \`Hello, \${name}!\`;
-}
-
-// Export for module usage
-export default greet;`,
-      typescript: `// New TypeScript file
-interface User {
-  name: string;
-  age: number;
-}
-
-function greetUser(user: User): string {
-  return \`Hello, \${user.name}! You are \${user.age} years old.\`;
-}
-
-export default greetUser;`,
-      html: `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New HTML File</title>
-</head>
-<body>
-    <h1>Welcome to your new HTML file!</h1>
-    <p>Start building your web page here.</p>
-    
-    <script src="script.js"></script>
-</body>
-</html>`,
-      css: `/* New CSS file */
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 20px;
-    background-color: #f5f5f5;
-}
-
-h1 {
-    color: #333;
-    text-align: center;
-}
-
-p {
-    color: #666;
-    line-height: 1.6;
-}`,
-      scss: `// New SCSS file
-$primary-color: #007bff;
-$secondary-color: #6c757d;
-
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 20px;
-    background-color: lighten($secondary-color, 45%);
-}
-
-h1 {
-    color: $primary-color;
-    text-align: center;
-    
-    &:hover {
-        color: darken($primary-color, 10%);
+  const handleNewFileKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      confirmCreateNewFile();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setShowNewFileInput(false);
+      setNewFileName("");
     }
-}`,
-      json: `{
-  "name": "new-file",
-  "version": "1.0.0",
-  "description": "A new JSON file",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "test": "echo \\"Error: no test specified\\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
-}`,
-      markdown: `# New Markdown File
-
-Welcome to your new markdown file!
-
-## Features
-
-- **Bold text** and *italic text*
-- [Links](https://example.com)
-- \`Inline code\`
-
-## Code Blocks
-
-\`\`\`javascript
-function hello() {
-    console.log("Hello, World!");
-}
-\`\`\`
-
-## Lists
-
-1. First item
-2. Second item
-3. Third item
-
-- Unordered item
-- Another item`,
-      python: `# New Python file
-def main():
-    print("Hello, World!")
-    
-    # Example function
-    result = calculate_sum(5, 3)
-    print(f"5 + 3 = {result}")
-
-def calculate_sum(a, b):
-    """Calculate the sum of two numbers."""
-    return a + b
-
-if __name__ == "__main__":
-    main()`,
-      java: `// New Java file
-public class NewFile {
-    public static void main(String[] args) {
-        System.out.println("Hello, World!");
-        
-        // Example method call
-        int result = calculateSum(5, 3);
-        System.out.println("5 + 3 = " + result);
-    }
-    
-    public static int calculateSum(int a, int b) {
-        return a + b;
-    }
-}`,
-      cpp: `// New C++ file
-#include <iostream>
-using namespace std;
-
-int main() {
-    cout << "Hello, World!" << endl;
-    
-    // Example function call
-    int result = calculateSum(5, 3);
-    cout << "5 + 3 = " << result << endl;
-    
-    return 0;
-}
-
-int calculateSum(int a, int b) {
-    return a + b;
-}`,
-      c: `// New C file
-#include <stdio.h>
-
-int main() {
-    printf("Hello, World!\\n");
-    
-    // Example function call
-    int result = calculateSum(5, 3);
-    printf("5 + 3 = %d\\n", result);
-    
-    return 0;
-}
-
-int calculateSum(int a, int b) {
-    return a + b;
-}`,
-      rust: `// New Rust file
-fn main() {
-    println!("Hello, World!");
-    
-    // Example function call
-    let result = calculate_sum(5, 3);
-    println!("5 + 3 = {}", result);
-}
-
-fn calculate_sum(a: i32, b: i32) -> i32 {
-    a + b
-}`,
-      go: `// New Go file
-package main
-
-import "fmt"
-
-func main() {
-    fmt.Println("Hello, World!")
-    
-    // Example function call
-    result := calculateSum(5, 3)
-    fmt.Printf("5 + 3 = %d\\n", result)
-}
-
-func calculateSum(a, b int) int {
-    return a + b
-}`,
-      php: `<?php
-// New PHP file
-echo "Hello, World!\\n";
-
-// Example function call
-$result = calculateSum(5, 3);
-echo "5 + 3 = " . $result . "\\n";
-
-function calculateSum($a, $b) {
-    return $a + $b;
-}
-?>`,
-      sql: `-- New SQL file
--- Create a new table
-CREATE TABLE users (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Insert sample data
-INSERT INTO users (name, email) VALUES 
-    ('John Doe', 'john@example.com'),
-    ('Jane Smith', 'jane@example.com');
-
--- Query data
-SELECT * FROM users;`,
-      xml: `<?xml version="1.0" encoding="UTF-8"?>
-<root>
-    <title>New XML File</title>
-    <description>This is a new XML file</description>
-    <items>
-        <item id="1">First item</item>
-        <item id="2">Second item</item>
-        <item id="3">Third item</item>
-    </items>
-</root>`,
-      yaml: `# New YAML file
-name: new-file
-version: 1.0.0
-description: A new YAML configuration file
-
-# Configuration options
-settings:
-  debug: false
-  timeout: 30
-  retries: 3
-
-# Database configuration
-database:
-  host: localhost
-  port: 5432
-  name: myapp
-  user: admin
-
-# Features
-features:
-  - authentication
-  - logging
-  - caching`,
-      plaintext: `New Plain Text File
-
-This is a new plain text file. You can use it for:
-
-- Notes
-- Documentation
-- Configuration
-- Any text-based content
-
-Feel free to edit this content as needed.`,
-    };
-
-    return defaultContent[language] || defaultContent.javascript;
   };
 
   const handleEditorDidMount = (editor) => {
@@ -521,11 +303,39 @@ Feel free to edit this content as needed.`,
           <button
             className="add-file-btn"
             onClick={handleCreateNewFile}
-            title="Create new file"
+            title={showNewFileInput ? "Close" : "Create new file"}
           >
-            +
+            {showNewFileInput ? "x" : "+"}
           </button>
         </div>
+
+        {showNewFileInput && (
+          <div style={{ padding: "8px 16px" }}>
+            <input
+              type="text"
+              placeholder="New file name (e.g. index.js)"
+              value={newFileName}
+              onChange={(e) => setNewFileName(e.target.value)}
+              onKeyDown={handleNewFileKeyDown}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                borderRadius: 6,
+                border: "1px solid #3e3e42",
+                outline: "none",
+                background: "#1e1e1e",
+                color: "#ccc",
+                marginBottom: 6,
+              }}
+              autoFocus
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn-primary" onClick={confirmCreateNewFile}>
+                Create
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="file-explorer">
           {files.map((file) => (

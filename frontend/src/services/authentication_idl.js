@@ -28,6 +28,19 @@ export const idlFactory = ({ IDL }) => {
     slack: IDL.Text,
   });
 
+  const Session = IDL.Record({
+    sessionId: IDL.Text,
+    principal: IDL.Text,
+    createdAt: IDL.Int,
+    expiresAt: IDL.Int,
+  });
+
+  const SessionResult = IDL.Record({
+    success: IDL.Bool,
+    message: IDL.Opt(IDL.Text),
+    session: IDL.Opt(Session),
+  });
+
   return IDL.Service({
     register_or_update: IDL.Func(
       [IDL.Text, ProfileUpdateRequest],
@@ -38,5 +51,11 @@ export const idlFactory = ({ IDL }) => {
     update_user_remove_table: IDL.Func([IDL.Text, IDL.Nat], [AuthResult], []),
     get_all_users: IDL.Func([], [IDL.Vec(User)], ["query"]),
     get_user_by_principal: IDL.Func([IDL.Text], [AuthResult], ["query"]),
+    // Session management
+    create_session: IDL.Func([IDL.Text], [SessionResult], []),
+    validate_session: IDL.Func([IDL.Text], [SessionResult], ["query"]),
+    logout: IDL.Func([IDL.Text], [SessionResult], []),
+    // Profile retrieval aligned name
+    get_profile: IDL.Func([IDL.Text], [AuthResult], ["query"]),
   });
 };

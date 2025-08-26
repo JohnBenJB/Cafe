@@ -13,6 +13,7 @@ class InternetIdentityService {
     this.isAuthenticated = false;
     this.user = null;
     this.backendAvailable = false;
+    this.sessionId = null;
   }
 
   // Helpers for principal-scoped caching
@@ -46,6 +47,10 @@ class InternetIdentityService {
     return `cafe_user_profile:${principalText}`;
   }
 
+  getScopedSessionKey(principalText) {
+    return `cafe_session:${principalText}`;
+  }
+
   readCachedProfile(principalText) {
     try {
       const key = this.getScopedProfileKey(principalText);
@@ -66,6 +71,36 @@ class InternetIdentityService {
         key,
         JSON.stringify({ ...profile, principal: principalText })
       );
+    } catch {
+      // no-op
+    }
+  }
+
+  readCachedSession(principalText) {
+    try {
+      const key = this.getScopedSessionKey(principalText);
+      const value = localStorage.getItem(key);
+      return value || null;
+    } catch {
+      return null;
+    }
+  }
+
+  writeCachedSession(principalText, sessionId) {
+    try {
+      const key = this.getScopedSessionKey(principalText);
+      if (sessionId) {
+        localStorage.setItem(key, sessionId);
+      }
+    } catch {
+      // no-op
+    }
+  }
+
+  clearCachedSession(principalText) {
+    try {
+      const key = this.getScopedSessionKey(principalText);
+      localStorage.removeItem(key);
     } catch {
       // no-op
     }
@@ -111,6 +146,51 @@ class InternetIdentityService {
         const principalText = this.identity.getPrincipal().toText();
         this.setActivePrincipal(principalText);
         this.migrateLegacyProfileIfAny(principalText);
+
+        // Initialize authentication canister and restore or create session
+        await authenticationService.initialize(this.identity);
+        const cachedSession = this.readCachedSession(principalText);
+        if (cachedSession) {
+          try {
+            const validation = await authenticationService.validateSession(
+              cachedSession
+            );
+            if (validation?.success && validation.session?.length) {
+              this.sessionId = cachedSession;
+            } else {
+              const created = await authenticationService.createSession(
+                principalText
+              );
+              const newSessionId = created?.session?.length
+                ? created.session[0].sessionId
+                : null;
+              this.sessionId = newSessionId;
+              if (newSessionId)
+                this.writeCachedSession(principalText, newSessionId);
+            }
+          } catch {
+            const created = await authenticationService.createSession(
+              principalText
+            );
+            const newSessionId = created?.session?.length
+              ? created.session[0].sessionId
+              : null;
+            this.sessionId = newSessionId;
+            if (newSessionId)
+              this.writeCachedSession(principalText, newSessionId);
+          }
+        } else {
+          const created = await authenticationService.createSession(
+            principalText
+          );
+          const newSessionId = created?.session?.length
+            ? created.session[0].sessionId
+            : null;
+          this.sessionId = newSessionId;
+          if (newSessionId)
+            this.writeCachedSession(principalText, newSessionId);
+        }
+
         await this.loadUserProfile();
       }
 
@@ -149,6 +229,24 @@ class InternetIdentityService {
             const principalText = this.identity.getPrincipal().toText();
             this.setActivePrincipal(principalText);
             this.migrateLegacyProfileIfAny(principalText);
+
+            // Initialize auth canister and create a fresh session
+            await authenticationService.initialize(this.identity);
+            try {
+              const created = await authenticationService.createSession(
+                principalText
+              );
+              const newSessionId = created?.session?.length
+                ? created.session[0].sessionId
+                : null;
+              this.sessionId = newSessionId;
+              if (newSessionId)
+                this.writeCachedSession(principalText, newSessionId);
+            } catch (e) {
+              console.warn("Failed to create session:", e);
+              this.sessionId = null;
+            }
+
             await this.loadUserProfile();
             resolve(true);
           } catch (error) {
@@ -180,16 +278,37 @@ class InternetIdentityService {
 
   async signOut() {
     if (this.authClient) {
+      try {
+        if (this.identity) {
+          const principalText = this.identity.getPrincipal().toText();
+          await authenticationService.initialize(this.identity);
+          if (this.sessionId) {
+            try {
+              await authenticationService.logout(this.sessionId);
+            } catch (e) {
+              console.warn("Logout session failed:", e);
+            }
+            this.clearCachedSession(principalText);
+          }
+        }
+      } catch (e) {
+        console.warn("Error during logout cleanup:", e);
+      }
       await this.authClient.logout();
       this.identity = null;
       this.isAuthenticated = false;
       this.user = null;
+      this.sessionId = null;
       this.clearActivePrincipal();
     }
   }
 
   getIdentity() {
     return this.identity;
+  }
+
+  getSessionId() {
+    return this.sessionId;
   }
 
   isUserAuthenticated() {

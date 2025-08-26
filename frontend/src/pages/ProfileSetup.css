@@ -114,6 +114,7 @@
   background: linear-gradient(135deg, #e1760c, #ff8a00);
   color: #fff;
   box-shadow: 0 10px 25px rgba(225, 118, 12, 0.25);
+  width: 100%;
 }
 
 .btn-primary:hover:not(:disabled) {

@@ -5,6 +5,7 @@ import internetIdentityService from "../../services/internetIdentity";
 import MonacoEditor from "./MonacoCollaborativeEditor";
 import "./TableDetails.css";
 import caffeineIcon from "/caffeine.jpg";
+import { collaborativeEditorService } from "../../services/collaborativeEditor";
 
 const TableDetails = ({ table, onLeaveTable }) => {
   const [collaborators, setCollaborators] = useState([]);
@@ -601,10 +602,83 @@ MIT License - see LICENSE file for details`,
   };
 
   // Collaborative editor handlers
-  const handleFileContentChange = (fileId, content) => {
+  const handleFileContentChange = (fileId, content, newFile) => {
+    if (newFile && newFile.name) {
+      // Add new file and set active
+      setFiles((prev) => {
+        const deactivated = prev.map((f) => ({ ...f, isActive: false }));
+        return [...deactivated, { ...newFile, isActive: true }];
+      });
+      return;
+    }
+
     setFiles((prev) =>
       prev.map((f) => (f.id === fileId ? { ...f, content } : f))
     );
+
+    // Persist to storage canister
+    (async () => {
+      try {
+        const identity = internetIdentityService.getIdentity();
+        if (!identity) return;
+        await collaborativeEditorService.initialize(identity, table.id);
+        await collaborativeEditorService.saveFileToStorage(fileId, content);
+      } catch (e) {
+        console.warn("Failed to persist file to storage:", e);
+      }
+    })();
+  };
+
+  const handleCreateFileRemote = async (name) => {
+    // Ensure storage is initialized for this table
+    const identity = internetIdentityService.getIdentity();
+    if (!identity) throw new Error("No identity available");
+    await collaborativeEditorService.initialize(identity, table.id);
+
+    // Pick MIME based on extension (simple)
+    const lower = String(name).toLowerCase();
+    const mime = lower.endsWith(".md")
+      ? "text/markdown"
+      : lower.endsWith(".json")
+      ? "application/json"
+      : lower.endsWith(".css")
+      ? "text/css"
+      : lower.endsWith(".html")
+      ? "text/html"
+      : "text/plain";
+
+    const fileId = await collaborativeEditorService.createFile(name, mime, "");
+
+    const language = guessLanguage(name);
+    const created = {
+      id: Number(fileId),
+      name,
+      content: "",
+      language,
+      isActive: true,
+    };
+    // Update local files list
+    setFiles((prev) => {
+      const deactivated = prev.map((f) => ({ ...f, isActive: false }));
+      return [...deactivated, created];
+    });
+    return created;
+  };
+
+  // Add new empty file locally and set active
+  const guessLanguage = (name) => {
+    const lower = String(name || "").toLowerCase();
+    if (lower.endsWith(".js") || lower.endsWith(".jsx")) return "javascript";
+    if (lower.endsWith(".ts") || lower.endsWith(".tsx")) return "typescript";
+    if (lower.endsWith(".json")) return "json";
+    if (lower.endsWith(".css")) return "css";
+    if (lower.endsWith(".md")) return "markdown";
+    if (lower.endsWith(".html")) return "html";
+    if (lower.endsWith(".py")) return "python";
+    if (lower.endsWith(".rs")) return "rust";
+    if (lower.endsWith(".go")) return "go";
+    if (lower.endsWith(".java")) return "java";
+    return "plaintext";
   };
 
   if (isLoading) {
@@ -659,7 +733,7 @@ MIT License - see LICENSE file for details`,
                 <path
                   d="M15.5 10.25L20 12.5L11 17L2 12.5L6.5 10.25M15.5 15.25L20 17.5L11 22L2 17.5L6.5 15.25M11 3L20 7.5L11 12L2 7.5L11 3Z"
                   stroke="#C4C4C4"
-                  stroke-width="1.5"
+                  strokeWidth="1.5"
                 />
               </svg>
             </div>
@@ -682,20 +756,20 @@ MIT License - see LICENSE file for details`,
                 <path
                   d="M15.2012 1L10.0602 18.1812"
                   stroke="#c4c4c4"
-                  stroke-width="1.2"
-                  stroke-linecap="round"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
                 ></path>
                 <path
                   d="M24.8301 9.75244C24.83 9.94753 24.7628 10.1354 24.6416 10.2847L24.5859 10.3462L18.4668 16.5103C18.3102 16.6611 18.1018 16.7445 17.8857 16.7427C17.6682 16.7408 17.459 16.653 17.3047 16.4976C17.1504 16.3421 17.0626 16.1312 17.0605 15.9106C17.0589 15.7174 17.1234 15.5301 17.2412 15.3804L17.2949 15.3188L22.6465 9.92822L22.8213 9.75244L22.6465 9.57568L17.292 4.18213C17.136 4.02491 17.048 3.81144 17.0479 3.58838C17.0479 3.36515 17.1359 3.15097 17.292 2.99365C17.448 2.83658 17.6591 2.74864 17.8789 2.74854C18.0989 2.74854 18.3107 2.83644 18.4668 2.99365L24.5859 9.15771C24.7421 9.31503 24.8301 9.52921 24.8301 9.75244Z"
                   fill="#c4c4c4"
                   stroke="white"
-                  stroke-width="0.5"
+                  strokeWidth="0.5"
                 ></path>
                 <path
                   d="M0.25 9.73853C0.250075 9.54344 0.317248 9.35552 0.438477 9.2063L0.494141 9.14478L6.61328 2.98071C6.76986 2.82984 6.97832 2.7465 7.19434 2.74829C7.41183 2.75019 7.62104 2.83793 7.77539 2.99341C7.92966 3.14884 8.01751 3.35978 8.01953 3.58032C8.0212 3.77354 7.9567 3.9609 7.83887 4.1106L7.78516 4.17212L2.43359 9.56274L2.25879 9.73853L2.43359 9.91528L7.78809 15.3088C7.94409 15.4661 8.03211 15.6795 8.03223 15.9026C8.03223 16.1258 7.94421 16.34 7.78809 16.4973C7.63207 16.6544 7.42095 16.7423 7.20117 16.7424C6.98122 16.7424 6.76939 16.6545 6.61328 16.4973L0.494141 10.3333C0.338013 10.1759 0.25 9.96176 0.25 9.73853Z"
                   fill="#c4c4c4"
                   stroke="white"
-                  stroke-width="0.5"
+                  strokeWidth="0.5"
                 ></path>
               </svg>
             </div>
@@ -741,18 +815,18 @@ MIT License - see LICENSE file for details`,
                   d="M2 12.8799L2 11.1199C2 10.0799 2.85 9.21994 3.9 9.21994C5.71 9.21994 6.45 7.93994 5.54 6.36994C5.02 5.46994 5.33 4.29994 6.24 3.77994L7.97 2.78994C8.76 2.31994 9.78 2.59994 10.25 3.38994L10.36 3.57994C11.26 5.14994 12.74 5.14994 13.65 3.57994L13.76 3.38994C14.23 2.59994 15.25 2.31994 16.04 2.78994L17.77 3.77994C18.68 4.29994 18.99 5.46994 18.47 6.36994C17.56 7.93994 18.3 9.21994 20.11 9.21994C21.15 9.21994 22.01 10.0699 22.01 11.1199V12.8799C22.01 13.9199 21.16 14.7799 20.11 14.7799C18.3 14.7799 17.56 16.0599 18.47 17.6299C18.99 18.5399 18.68 19.6999 17.77 20.2199L16.04 21.2099C15.25 21.6799 14.23 21.3999 13.76 20.6099L13.65 20.4199C12.75 18.8499 11.27 18.8499 10.36 20.4199L10.25 20.6099C9.78 21.3999 8.76 21.6799 7.97 21.2099L6.24 20.2199C5.33 19.6999 5.02 18.5299 5.54 17.6299C6.45 16.0599 5.71 14.7799 3.9 14.7799C2.85 14.7799 2 13.9199 2 12.8799Z"
                   fill="white"
                   stroke="#C4C4C4"
-                  stroke-width="1.5"
-                  stroke-miterlimit="10"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  strokeWidth="1.5"
+                  strokeMiterlimit="10"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
                 <path
                   d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
                   stroke="#C4C4C4"
-                  stroke-width="1.5"
-                  stroke-miterlimit="10"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  strokeWidth="1.5"
+                  strokeMiterlimit="10"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
               </svg>
             </div>
@@ -1034,6 +1108,7 @@ MIT License - see LICENSE file for details`,
             <MonacoEditor
               files={files}
               onFileChange={handleFileContentChange}
+              onCreateFile={handleCreateFileRemote}
             />
           </div>
         )}

@@ -1,78 +1,116 @@
 // Storage Canister IDL
-// This is a basic interface definition for the storage canister
-// You'll need to update this based on the actual storage canister interface
-
+// Aligns with src/storage/main.mo
 export const idlFactory = ({ IDL }) => {
-  // Debug: Check if IDL is available
-  console.log("🔧 IDL Factory called with:", {
-    IDL: !!IDL,
-    IDLType: typeof IDL,
-  });
-  if (!IDL) {
-    throw new Error("IDL parameter is required for storage IDL factory");
-  }
-
-  const FileContent = IDL.Record({
-    content: IDL.Text,
-    timestamp: IDL.Int,
-    user: IDL.Principal,
+  // Error variant used by storage canister
+  const StorageError = IDL.Variant({
+    NotFound: IDL.Null,
+    AccessDenied: IDL.Null,
+    InvalidOperation: IDL.Null,
+    InvalidChunk: IDL.Null,
+    FileTooLarge: IDL.Null,
+    Other: IDL.Text,
   });
 
-  const FileMetadata = IDL.Record({
-    id: IDL.Nat,
+  const FileId = IDL.Nat32;
+  const Version = IDL.Nat;
+  const Blob = IDL.Vec(IDL.Nat8);
+
+  const ResultFileId = IDL.Variant({ ok: FileId, err: StorageError });
+  const ResultVoid = IDL.Variant({ ok: IDL.Null, err: StorageError });
+  const ResultBlob = IDL.Variant({ ok: Blob, err: StorageError });
+  const ResultFileIdArray = IDL.Variant({
+    ok: IDL.Vec(FileId),
+    err: StorageError,
+  });
+  const ResultVersion = IDL.Variant({ ok: Version, err: StorageError });
+
+  const FileMetaView = IDL.Record({
+    id: FileId,
+    tableId: IDL.Nat,
     name: IDL.Text,
-    language: IDL.Text,
+    mime: IDL.Text,
     size: IDL.Nat,
-    lastModified: IDL.Int,
-    createdBy: IDL.Principal,
+    chunkCount: IDL.Nat,
+    headVersion: Version,
+    createdAt: IDL.Int,
+    updatedAt: IDL.Int,
+    owner: IDL.Principal,
+    isDeleted: IDL.Bool,
+  });
+  const ResultFileMetaView = IDL.Variant({
+    ok: FileMetaView,
+    err: StorageError,
   });
 
-  const StorageResult = IDL.Variant({
-    ok: IDL.Text,
-    err: IDL.Text,
+  const FileMetadataUpdateRequest = IDL.Record({
+    name: IDL.Opt(IDL.Text),
+    mime: IDL.Opt(IDL.Text),
   });
 
-  const FileResult = IDL.Variant({
-    ok: FileContent,
-    err: IDL.Text,
-  });
-
-  const FileListResult = IDL.Variant({
-    ok: IDL.Vec(FileMetadata),
-    err: IDL.Text,
+  const ContentChunk = IDL.Record({
+    index: IDL.Nat,
+    data: Blob,
+    size: IDL.Nat,
   });
 
   return IDL.Service({
-    // Save file content
-    save_file: IDL.Func([IDL.Nat, IDL.Nat, IDL.Text], [StorageResult], []),
+    // File listing by table (uses caller principal for auth)
+    listFiles: IDL.Func([IDL.Nat], [ResultFileIdArray], ["query"]),
+    list_files: IDL.Func([IDL.Nat], [ResultFileIdArray], ["query"]),
 
-    // Get file content
-    get_file: IDL.Func([IDL.Nat, IDL.Nat], [FileResult], ["query"]),
+    // Get entire file content as blob (uses caller principal for auth)
+    getFileContent: IDL.Func([FileId], [ResultBlob], ["query"]),
+    get_file: IDL.Func([FileId], [ResultBlob], ["query"]),
 
-    // List files in a table
-    list_files: IDL.Func([IDL.Nat], [FileListResult], ["query"]),
+    // Get file metadata (uses caller principal for auth)
+    getFileMeta: IDL.Func([FileId], [ResultFileMetaView], []),
 
-    // Delete file
-    delete_file: IDL.Func([IDL.Nat, IDL.Nat], [StorageResult], []),
-
-    // Get file metadata
-    get_file_metadata: IDL.Func(
-      [IDL.Nat, IDL.Nat],
-      [IDL.Opt(FileMetadata)],
-      ["query"]
-    ),
-
-    // Update file metadata
-    update_file_metadata: IDL.Func(
-      [IDL.Nat, IDL.Nat, FileMetadata],
-      [StorageResult],
+    // Update file metadata (requires sessionId)
+    updateFileMeta: IDL.Func(
+      [IDL.Text, FileId, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
+      [ResultVoid],
       []
     ),
 
-    // Subscribe to file changes
-    subscribe_to_changes: IDL.Func([IDL.Nat], [StorageResult], []),
+    // Update a specific chunk (requires sessionId)
+    update_chunk: IDL.Func(
+      [IDL.Text, FileId, IDL.Nat, Blob],
+      [ResultVersion],
+      []
+    ),
 
-    // Unsubscribe from changes
-    unsubscribe_from_changes: IDL.Func([IDL.Nat], [StorageResult], []),
+    // Replace entire file content (requires sessionId)
+    replace_file_content: IDL.Func(
+      [IDL.Text, FileId, IDL.Vec(ContentChunk)],
+      [ResultVersion],
+      []
+    ),
+
+    // Create new file (requires sessionId)
+    create_file: IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Nat, IDL.Text, IDL.Opt(Blob)],
+      [ResultFileId],
+      []
+    ),
+
+    // Delete file (requires sessionId)
+    delete_file: IDL.Func([IDL.Text, FileId], [ResultVoid], []),
+
+    // Restore deleted file (requires sessionId)
+    restore_file: IDL.Func([IDL.Text, FileId], [ResultVoid], []),
+
+    // Get specific chunk (uses caller principal for auth)
+    getChunk: IDL.Func(
+      [FileId, IDL.Nat],
+      [IDL.Variant({ ok: ContentChunk, err: StorageError })],
+      []
+    ),
+
+    // Get all chunks for a file (uses caller principal for auth)
+    getAllChunks: IDL.Func(
+      [FileId],
+      [IDL.Variant({ ok: IDL.Vec(ContentChunk), err: StorageError })],
+      []
+    ),
   });
 };

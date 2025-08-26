@@ -63,19 +63,30 @@ export const idlFactory = ({ IDL }) => {
   });
 
   return IDL.Service({
-    create_table: IDL.Func([IDL.Text, IDL.Text], [TableResult], []),
-    delete_table: IDL.Func([IDL.Nat], [TableResult], []),
+    create_table: IDL.Func([IDL.Text, IDL.Text, IDL.Text], [TableResult], []),
+    delete_table: IDL.Func([IDL.Text, IDL.Nat], [TableResult], []),
     get_table: IDL.Func([IDL.Nat], [IDL.Opt(Table)], ["query"]),
-    get_user_tables: IDL.Func([], [UserTablesResult], []),
-    leave_table: IDL.Func([IDL.Nat], [NatArrayResult], []),
+    get_user_tables: IDL.Func([IDL.Text], [UserTablesResult], []),
+    leave_table: IDL.Func([IDL.Text, IDL.Nat], [NatArrayResult], []),
     get_table_collaborators: IDL.Func([IDL.Nat], [UserArrayResult], []),
-    request_join_table: IDL.Func([IDL.Principal, IDL.Nat], [TextResult], []),
-    // Added missing invitation methods
-    accept_join_table: IDL.Func([IDL.Nat], [NatArrayResult], []),
-    reject_join_request: IDL.Func([IDL.Nat], [TextResult], []),
-    cancel_join_request: IDL.Func([IDL.Principal, IDL.Nat], [TextResult], []),
-    get_pending_sent_requests: IDL.Func([IDL.Nat], [TextArrayResult], []),
-    get_pending_recieved_requests: IDL.Func([], [NatArrayResult], []),
+    request_join_table: IDL.Func(
+      [IDL.Text, IDL.Principal, IDL.Nat],
+      [TextResult],
+      []
+    ),
+    accept_join_table: IDL.Func([IDL.Text, IDL.Nat], [NatArrayResult], []),
+    reject_join_request: IDL.Func([IDL.Text, IDL.Nat], [TextResult], []),
+    cancel_join_request: IDL.Func(
+      [IDL.Text, IDL.Principal, IDL.Nat],
+      [TextResult],
+      []
+    ),
+    get_pending_sent_requests: IDL.Func(
+      [IDL.Text, IDL.Nat],
+      [TextArrayResult],
+      []
+    ),
+    get_pending_recieved_requests: IDL.Func([IDL.Text], [NatArrayResult], []),
     get_all_tables: IDL.Func([], [TableArrayResult], ["query"]),
   });
 };
