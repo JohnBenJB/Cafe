@@ -15,6 +15,11 @@
       "main": "src/storage/main.mo",
       "dependencies": ["authentication", "internet_identity", "table_management"]
     },
+    "communication": {
+      "type": "motoko",
+      "main": "src/communication/main.mo",
+      "dependencies": ["storage", "authentication", "internet_identity", "table_management"]
+    },
 
     "internet_identity": {
       "type": "custom",

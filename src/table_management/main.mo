@@ -179,8 +179,11 @@ actor table_management {
       };
       case (?_user) {
         let allTables = Iter.toArray(tablesById.vals());
-        let created = Array.mapfilter<Table, Nat>(allTables, func(t) { if (t.creator == caller) t.id});
-        let joined = Array.filter<Table>(allTables, func(t) { if (arrayContains<Principal>(t.tableCollaborators, caller, Principal.equal)) t.id});
+        let created = Array.mapFilter<Table, Nat>(allTables, func(t) { if
+        (t.creator == caller) ?t.id else null});
+        let joined = Array.mapFilter<Table, Nat>(allTables, func(t) { if
+        (arrayContains<Principal>(t.tableCollaborators, caller,
+        Principal.equal)) ?t.id else null});
         #ok(Array.append(created, joined))
       }
     }

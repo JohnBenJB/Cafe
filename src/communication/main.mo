@@ -114,7 +114,7 @@ actor {
 
   func isTableCollaborator(caller : Principal, tableId : Nat) : async Bool {
     switch (await TableManagement.get_caller_tables(caller)) {
-      case (#err(_)) { false };
+      case (#Err(_)) { false };
       case (#ok(tables)) {
         if (arrayContains<Nat>(tables, tableId, Nat.equal)) {
           return true;
@@ -129,11 +129,11 @@ actor {
     // Serialize chats
     let chatsArr : [(ChatId, Chat)] = Iter.toArray(chats.entries());
     let stableChats : [(ChatId, StableChat)]  = Array.map<(ChatId, Chat), (ChatId, StableChat)>(chatsArr, func (pair) {let (chatId, chat) = pair; (chatId, chatToStable(chat))});
-    
-    
+
+
     // Serialize table-chat mappings
     stableChatsByTable := Iter.toArray(chatsByTable.entries());
-    
+
     // Update global counters
     nextChatId := nextChatId;
     nextNat := nextNat;
@@ -146,12 +146,12 @@ actor {
       let chat = stableToChat(stableChat);
       chats.put(chatId, chat);
     };
-    
+
     // Restore table-chat mappings
     for ((tableId, chatId) in stableChatsByTable.vals()) {
       chatsByTable.put(tableId, chatId);
     };
-    
+
     // Clear stable arrays
     stableChats := [];
     stableChatsByTable := [];
@@ -175,14 +175,14 @@ actor {
     tableId : Nat
   ) : async Result<ChatId, Error> {
     switch (await TableManagement.get_table(tableId)) {
-      case (#err(error)) {
-        return #err(#NotFound);
+      case (null) {
+        return #Err(#NotFound);
       };
-      case (#ok(table)) {
+      case (table) {
 
       };
     };
-    
+
     // Check if table already has a chat
     switch (chatsByTable.get(tableId)) {
       case (?existingChatId) {
@@ -190,11 +190,11 @@ actor {
       };
       case null { /* Continue */ };
     };
-    
+
     // Generate new chat ID
     let chatId = nextChatId;
     nextChatId += 1;
-    
+
     // Create chat info
     let now = Types.now();
     let chatInfo : ChatInfo = {
@@ -205,7 +205,7 @@ actor {
       var lastMessageAt = now;
       isActive = true;
     };
-    
+
     // // Create participant info for creator
     // let participantInfo : ParticipantInfo = {
     //   userPrincipal = caller;
@@ -222,14 +222,14 @@ actor {
       // participants = participants;
       var nextNat = 0;
     };
-    
+
     // Add creator as participant
     // chat.participants.put(caller, participantInfo);
-    
+
     // Store chat
     chats.put(chatId, chat);
     chatsByTable.put(tableId, chatId);
-    
+
     // Create system message for chat creation
     let systemMessage : Message = {
       id = chat.nextNat;
@@ -241,10 +241,10 @@ actor {
       isDeleted = false;
       replyTo = null;
     };
-    
+
     chat.messages.put(chat.nextNat, systemMessage);
     chat.nextNat += 1;
-    
+
     #Ok(chatId);
   };
 
@@ -269,13 +269,13 @@ actor {
   // // List all chats for a user
   // public query func list_user_chats(userPrincipal : Principal) : async Result<[ChatInfo], Error> {
   //   let userChats = Buffer.Buffer<ChatInfo>(0);
-    
+
   //   for ((_, chat) in chats.entries()) {
   //     if (Types.isUserInChat(userPrincipal, chat.info.participants)) {
   //       userChats.add(chat.info);
   //     };
   //   };
-    
+
   //   #Ok(Buffer.toArray(userChats));
   // };
 
@@ -286,24 +286,24 @@ actor {
   //   chatId : ChatId,
   //   newParticipant : Principal
   // ) : async Result<(), Error> {
-    
+
   //   switch (chats.get(chatId)) {
   //     case (?chat) {
   //       // Check if caller is already a participant
   //       if (not Types.isUserInChat(caller, chat.info.participants)) {
   //         return #Err(#AccessDenied);
   //       };
-        
+
   //       // Check if new participant is already in chat
   //       if (Types.isUserInChat(newParticipant, chat.info.participants)) {
   //         return #Err(#InvalidOperation);
   //       };
-        
+
   //       // Check if chat is full
   //       if (chat.info.participants.size() >= Nat32.toNat(Types.MAX_CHAT_PARTICIPANTS)) {
   //         return #Err(#ChatFull);
   //       };
-        
+
   //       // Add participant
   //       let now = Types.now();
   //       let participantInfo : ParticipantInfo = {
@@ -312,13 +312,13 @@ actor {
   //         lastSeen = now;
   //         isActive = true;
   //       };
-        
+
   //       chat.participants.put(newParticipant, participantInfo);
-        
+
   //       // Update chat info
   //       let newParticipants = Array.append(chat.info.participants, [newParticipant]);
   //       chat.info.participants := newParticipants;
-        
+
   //       // Create system message
   //       let systemMessage : Message = {
   //         id = chat.nextNat;
@@ -330,10 +330,10 @@ actor {
   //         isDeleted = false;
   //         replyTo = null;
   //       };
-        
+
   //       chat.messages.put(chat.nextNat, systemMessage);
   //       chat.nextNat += 1;
-        
+
   //       #Ok(());
   //     };
   //     case null { #Err(#NotFound) };
@@ -345,29 +345,29 @@ actor {
   //   chatId : ChatId,
   //   participantToRemove : Principal
   // ) : async Result<(), Error> {
-    
+
   //   switch (chats.get(chatId)) {
   //     case (?chat) {
   //       // Check if caller is a participant
   //       if (not Types.isUserInChat(caller, chat.info.participants)) {
   //         return #Err(#AccessDenied);
   //       };
-        
+
   //       // Check if participant to remove is in chat
   //       if (not Types.isUserInChat(participantToRemove, chat.info.participants)) {
   //         return #Err(#UserNotInChat);
   //       };
-        
+
   //       // Remove participant
   //       chat.participants.delete(participantToRemove);
-        
+
   //       // Update chat info
   //       let filteredParticipants = Array.filter<Principal>(
   //         chat.info.participants,
   //         func(p : Principal) : Bool { not Principal.equal(p, participantToRemove) }
   //       );
   //       chat.info.participants := filteredParticipants;
-        
+
   //       // Create system message
   //       let now = Types.now();
   //       let systemMessage : Message = {
@@ -380,10 +380,10 @@ actor {
   //         isDeleted = false;
   //         replyTo = null;
   //       };
-        
+
   //       chat.messages.put(chat.nextNat, systemMessage);
   //       chat.nextNat += 1;
-        
+
   //       #Ok(());
   //     };
   //     case null { #Err(#NotFound) };
@@ -433,23 +433,23 @@ actor {
     chatId : ChatId,
     content : MessageContent
   ) : async Result<Nat, Error> {
-    
+
     // Validate message content
     if (not Types.validateMessageContent(content)) {
       return #Err(#MessageTooLong);
     };
-    
+
     switch (chats.get(chatId)) {
       case (?chat) {
         // Check if user is in chat
         let isAuthorized : Bool = await isTableCollaborator(caller, chat.info.tableId);
         switch (isAuthorized) {
           case true {};
-          case false {    
+          case false {
               return #Err(#UserNotInChat);
           };
         };
-        
+
         // Create message
         let now = Types.now();
         let newNat = chat.nextNat;
@@ -463,14 +463,14 @@ actor {
           isDeleted = false;
           replyTo = null;
         };
-        
+
         // Store message
         chat.messages.put(newNat, message);
         chat.nextNat += 1;
-        
+
         // Update chat's last message time
         chat.info.lastMessageAt := now;
-        
+
         // // Update user's last seen time
         // switch (chat.participants.get(caller)) {
         //   case (?participant) {
@@ -484,7 +484,7 @@ actor {
         //   };
         //   case null { /* Shouldn't happen */ };
         // };
-        
+
         #Ok(newNat);
       };
       case null { #Err(#NotFound) };
@@ -492,35 +492,35 @@ actor {
   };
 
   // Get messages from chat
-  public query func get_messages(
+  public func get_messages(
     chatId : ChatId,
     offset : Nat,
     limit : Nat
   ) : async Result<Paginated<MessageResponse>, Error> {
-    
+
     switch (chats.get(chatId)) {
       case (?chat) {
         let messages = Buffer.Buffer<MessageResponse>(0);
         var total : Nat = 0;
-        
+
         // Convert messages to array and sort by timestamp (newest first)
         let messageArray = Iter.toArray(chat.messages.entries());
         let sortedMessages = Array.sort(messageArray, func(a : (Nat, Message), b : (Nat, Message)) : { #less; #equal; #greater } {
           if (a.1.timestamp > b.1.timestamp) { #less } else if (a.1.timestamp < b.1.timestamp) { #greater } else { #equal };
         });
-        
+
         for ((_, message) in sortedMessages.vals()) {
           total += 1;
           if (messages.size() < limit and total > offset) {
             // Convert to MessageResponse (simplified - in real app you'd resolve sender name)
-            let sender = await Auth.get_profile(message.senderPrincipal);
-            let senderName : Text = "";
+            let sender = await Auth.get_profile(Principal.toText(message.senderPrincipal));
+            var senderName : Text = "";
             switch (sender.user) {
               case (?profile) {
                 senderName := profile.username;
               };
               case null { /* Use principal text as fallback */
-                return #err(#NotFound);
+                return #Err(#NotFound);
               };
             };
             let messageResponse : MessageResponse = {
@@ -536,9 +536,9 @@ actor {
             messages.add(messageResponse);
           };
         };
-        
+
         let nextOffset = if (offset + limit < total) { ?(offset + limit) } else { null };
-        
+
         #Ok({
           items = Buffer.toArray(messages);
           next = nextOffset;
@@ -555,23 +555,23 @@ actor {
     messageId : Nat,
     newContent : MessageContent
   ) : async Result<(), Error> {
-    
+
     // Validate new content
     if (not Types.validateMessageContent(newContent)) {
       return #Err(#MessageTooLong);
     };
-    
+
     switch (chats.get(chatId)) {
       case (?chat) {
         // Check if user is in chat
         let isAuthorized : Bool = await isTableCollaborator(caller, chat.info.tableId);
         switch (isAuthorized) {
           case true {};
-          case false {    
+          case false {
               return #Err(#UserNotInChat);
           };
         };
-        
+
         // Get message
         switch (chat.messages.get(messageId)) {
           case (?message) {
@@ -579,7 +579,7 @@ actor {
             if (not Principal.equal(caller, message.senderPrincipal)) {
               return #Err(#AccessDenied);
             };
-            
+
             // Update message
             let updatedMessage : Message = {
               id = message.id;
@@ -591,7 +591,7 @@ actor {
               isDeleted = message.isDeleted;
               replyTo = message.replyTo;
             };
-            
+
             chat.messages.put(messageId, updatedMessage);
             #Ok(());
           };
@@ -607,18 +607,18 @@ actor {
     chatId : ChatId,
     messageId : Nat
   ) : async Result<(), Error> {
-    
+
     switch (chats.get(chatId)) {
       case (?chat) {
         // Check if user is in chat
         let isAuthorized : Bool = await isTableCollaborator(caller, chat.info.tableId);
         switch (isAuthorized) {
           case true {};
-          case false {    
+          case false {
               return #Err(#UserNotInChat);
           };
         };
-        
+
         // Get message
         switch (chat.messages.get(messageId)) {
           case (?message) {
@@ -626,7 +626,7 @@ actor {
             if (not Principal.equal(caller, message.senderPrincipal)) {
               return #Err(#AccessDenied);
             };
-            
+
             // Mark message as deleted
             let updatedMessage : Message = {
               id = message.id;
@@ -638,7 +638,7 @@ actor {
               isDeleted = true;
               replyTo = message.replyTo;
             };
-            
+
             chat.messages.put(messageId, updatedMessage);
             #Ok(());
           };
@@ -656,14 +656,14 @@ actor {
     chatId : ChatId,
     isTyping : Bool
   ) : async Result<(), Error> {
-    
+
     switch (chats.get(chatId)) {
       case (?chat) {
         // Check if user is in chat
         let isAuthorized : Bool = await isTableCollaborator(caller, chat.info.tableId);
         switch (isAuthorized) {
           case true {};
-          case false {    
+          case false {
               return #Err(#UserNotInChat);
           };
         };
@@ -683,7 +683,7 @@ actor {
             };
           };
         };
-        
+
         #Ok(());
       };
       case null { #Err(#NotFound) };
@@ -696,14 +696,14 @@ actor {
       case (?chatTypingUsers) {
         let typingUserPrincipals = Buffer.Buffer<Principal>(0);
         let now = Types.now();
-        
+
         for ((userPrincipal, timestamp) in chatTypingUsers.entries()) {
           // Only include users who typed recently
           if ((now - timestamp) < Types.TYPING_TIMEOUT_NANOS) {
             typingUserPrincipals.add(userPrincipal);
           };
         };
-        
+
         #Ok(Buffer.toArray(typingUserPrincipals));
       };
       case null { #Ok([]) };
@@ -738,22 +738,22 @@ actor {
   public shared ({ caller }) func cleanup_typing_indicators() : async Result<Nat, Error> {
     var cleanedCount : Nat = 0;
     let now = Types.now();
-    
+
     for ((chatId, chatTypingUsers) in typingUsers.entries()) {
       let toRemove = Buffer.Buffer<Principal>(0);
-      
+
       for ((userPrincipal, timestamp) in chatTypingUsers.entries()) {
         if (now - timestamp >= Types.TYPING_TIMEOUT_NANOS) {
           toRemove.add(userPrincipal);
         };
       };
-      
+
       for (userPrincipal in toRemove.vals()) {
         chatTypingUsers.delete(userPrincipal);
         cleanedCount += 1;
       };
     };
-    
+
     #Ok(cleanedCount);
   };
 
@@ -777,16 +777,16 @@ actor {
   system func heartbeat() : async () {
     // Clean up old typing indicators
     let now = Types.now();
-    
+
     for ((chatId, chatTypingUsers) in typingUsers.entries()) {
       let toRemove = Buffer.Buffer<Principal>(0);
-      
+
       for ((userPrincipal, timestamp) in chatTypingUsers.entries()) {
         if (now - timestamp >= Types.TYPING_TIMEOUT_NANOS) {
           toRemove.add(userPrincipal);
         };
       };
-      
+
       for (userPrincipal in toRemove.vals()) {
         chatTypingUsers.delete(userPrincipal);
       };
