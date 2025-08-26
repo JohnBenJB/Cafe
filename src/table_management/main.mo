@@ -7,6 +7,7 @@ import Array "mo:base/Array";
 import Principal "mo:base/Principal";
 import Auth "canister:authentication";
 import Result "mo:base/Result";
+import Debug "mo:base/Debug";
 
 actor table_management {
   type Table = Types.Table;
@@ -59,7 +60,7 @@ actor table_management {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return (#err("Cannot update another user's profile"));
@@ -101,7 +102,7 @@ actor table_management {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return (#err("Cannot update another user's profile"));
@@ -150,7 +151,7 @@ actor table_management {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return (#err("Cannot update another user's profile"));
@@ -180,7 +181,7 @@ actor table_management {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return (#err("Cannot update another user's profile"));
@@ -219,6 +220,7 @@ actor table_management {
     switch (tablesById.get(tableId)) {
       case null #err("Table does not exist");
       case (?table) {
+        Debug.print("Inside table");
         var collaborators: [User] = [];
         for (p in table.tableCollaborators.vals()) {
           // changed: Auth expects Text and returns AuthResult
@@ -244,7 +246,7 @@ actor table_management {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return (#err("Cannot update another user's profile"));
@@ -287,7 +289,7 @@ actor table_management {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return (#err("Cannot update another user's profile"));
@@ -341,7 +343,7 @@ actor table_management {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return (#err("Cannot update another user's profile"));
@@ -371,7 +373,7 @@ actor table_management {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return (#err("Cannot update another user's profile"));
@@ -393,7 +395,7 @@ actor table_management {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return (#err("Cannot update another user's profile"));
@@ -433,7 +435,7 @@ actor table_management {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return (#err("Cannot update another user's profile"));

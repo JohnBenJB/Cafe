@@ -1268,7 +1268,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -1658,7 +1658,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return false;
@@ -2033,7 +2033,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2088,7 +2088,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2141,7 +2141,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2174,7 +2174,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Check if one version is ancestor of another
   public shared ({ caller }) func isAncestor(
-    sessionId : Text, 
+    sessionId : Text,
     fileId : FileId,
     ancestor : Version,
     descendant : Version
@@ -2187,7 +2187,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2342,7 +2342,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2380,7 +2380,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return 0;
@@ -2411,7 +2411,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return 0;
@@ -2448,7 +2448,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return false;
@@ -2507,7 +2507,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2619,13 +2619,14 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
     };
     switch (await TableManagement.get_table_collaborators(tableId)) {
       case (#err(error)) {
+        Debug.print(error);
         return #err(#NotFound);
       };
       case (#ok(collaborators)) {
@@ -2676,7 +2677,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2711,7 +2712,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2741,7 +2742,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Update a specific chunk
   public shared ({ caller }) func update_chunk(
-    sessionId : Text, 
+    sessionId : Text,
     fileId : FileId,
     chunkIndex : Nat,
     data : Blob
@@ -2754,7 +2755,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2781,7 +2782,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Replace file content
   public shared ({ caller }) func replace_file_content(
-    sessionId : Text, 
+    sessionId : Text,
     fileId : FileId,
     newChunks : [ContentChunk]
   ) : async Result<Version, Error> {
@@ -2793,7 +2794,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2868,7 +2869,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2888,7 +2889,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Create a snapshot
   public shared ({ caller }) func create_snapshot(
-    sessionId : Text, 
+    sessionId : Text,
     fileId : FileId,
     message : ?Text
   ) : async Result<Version, Error> {
@@ -2900,7 +2901,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -2932,7 +2933,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Rollback to a specific version
   public shared ({ caller }) func rollback_to_version(
-    sessionId : Text, 
+    sessionId : Text,
     fileId : FileId,
     targetVersion : Version
   ) : async Result<Version, Error> {
@@ -2944,7 +2945,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -3000,7 +3001,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Apply a patch
   public shared ({ caller }) func apply_patch(
-    sessionId : Text, 
+    sessionId : Text,
     fileId : FileId,
     patch : Patch
   ) : async Result<{ newVersion : Version; transformed : [EditOp] }, Error> {
@@ -3012,7 +3013,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -3056,7 +3057,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Join a file
   public shared ({ caller }) func join_file(
-    sessionId : Text, 
+    sessionId : Text,
     fileId : FileId,
     clientId : ClientId
   ) : async Result<{ headVersion : Version; since : Seq }, Error> {
@@ -3068,7 +3069,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -3092,7 +3093,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Update cursor
   public shared ({ caller }) func update_cursor(
-    sessionId : Text, 
+    sessionId : Text,
     fileId : FileId,
     cursor : Cursor
   ) : async Result<(), Error> {
@@ -3104,7 +3105,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -3116,7 +3117,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
 
   // Set autosave policy
   public shared ({ caller }) func set_autosave_policy(
-    sessionId : Text, 
+    sessionId : Text,
     fileId : FileId,
     policy : AutosavePolicy
   ) : async Result<(), Error> {
@@ -3128,7 +3129,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -3170,7 +3171,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -3226,7 +3227,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
@@ -3236,7 +3237,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
     var processedCount : Nat = 0;
 
     for (fileId in filesToProcess.vals()) {
-      switch (await process_autosave(sessionIdfileId)) {
+      switch (await process_autosave(sessionId, fileId)) {
         case (#ok(_)) { processedCount += 1 };
         case (#err(error)) {
           results.add("File " # Nat32.toText(fileId) # ": " # Types.errorMessage(error));
@@ -3321,7 +3322,7 @@ func markSaved(fileId : FileId) : Result<(), Error> {
       case (?s) { s.principal };
       case (null) { "" }; // This case won't occur due to earlier check
     };
-  
+
     // Only allow updating the profile of the logged-in user
     if (sessionPrincipal != Principal.toText(caller)) {
       return #err(#AccessDenied);
