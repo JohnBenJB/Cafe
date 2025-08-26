@@ -6,7 +6,7 @@ import internetIdentityService from "./internetIdentity";
 // Table Management Canister ID
 const TABLE_MANAGEMENT_CANISTER_ID =
   import.meta.env.VITE_TABLE_MANAGEMENT_CANISTER_ID ||
-  "umunu-kh777-77774-qaaca-cai";
+  "ucwa4-rx777-77774-qaada-cai"; // Local table_management canister ID
 
 class TableManagementService {
   constructor() {
@@ -286,15 +286,19 @@ class TableManagementService {
     }
 
     try {
+      console.log("🔍 Fetching collaborators for table:", tableId);
       const result = await this.actor.get_table_collaborators(tableId);
+      console.log("🔍 Raw result from canister:", result);
 
       if ("ok" in result) {
+        console.log("✅ Collaborators loaded successfully:", result.ok);
         return result.ok;
       } else {
+        console.error("❌ Error loading collaborators:", result.err);
         throw new Error(result.err);
       }
     } catch (error) {
-      console.error("Error getting table collaborators:", error);
+      console.error("❌ Error getting table collaborators:", error);
       throw error;
     }
   }

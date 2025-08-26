@@ -2,7 +2,7 @@
 export const INTERNET_IDENTITY_CONFIG = {
   development: {
     // Recommended local II origin (not candid UI)
-    local: "http://uzt4z-lp777-77774-qaabq-cai.localhost:4943",
+    local: "http://umunu-kh777-77774-qaaca-cai.localhost:4943",
     mainnet: "https://identity.ic0.app",
   },
   production: {
