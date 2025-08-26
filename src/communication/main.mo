@@ -22,7 +22,7 @@ import Debug "mo:base/Debug";
 actor {
   // Import types
   public type ChatId = Types.ChatId;
-  public type MessageId = Types.MessageId;
+  public type Nat = Types.Nat;
   public type ChatInfo = Types.ChatInfo;
   public type Chat = Types.Chat;
   public type ParticipantInfo = Types.ParticipantInfo;
@@ -41,29 +41,71 @@ actor {
 
   // Global counters
   stable var nextChatId : Nat32 = 0;
-  stable var nextMessageId : Nat32 = 0;
+  stable var nextNat : Nat = 0;
+
 
   // ===== UPGRADE/DOWNGRADE =====
 
   // Stable arrays for upgrade serialization
-  stable var stableChats : [(ChatId, Chat)] = [];
+  public type StableChat = {
+    info : ChatInfo;
+    messages : [(Nat, Message)] ;
+    nextNat : Nat;
+    participants : [(Principal, ParticipantInfo)];
+  };
+
+  // ===== CONVERSION FUNCTIONS =====
+
+  // Convert Chat to StableChat
+  func chatToStable(chat : Chat) : StableChat {
+    {
+      info = chat.info;
+      messages = Iter.toArray(chat.messages.entries());
+      nextNat = chat.nextNat;
+      participants = Iter.toArray(chat.participants.entries());
+    }
+  };
+  // Convert StableChat to Chat
+  func stableToChat(stableStorage : StableChat) : Chat {
+    let messages = HashMap.HashMap<Nat, Message>(0, Nat.equal, Hash.hash);
+    for ((id, msg) in stableStorage.messages) {
+      messages.put(id, msg);
+    };
+    let participants = HashMap.HashMap<Principal, ParticipantInfo>(0, Principal.equal, Principal.hash);
+    for ((user, info) in stableStorage.participants) {
+      participants.put(user, info);
+    };
+    {
+      var meta = stableStorage.meta;
+      var access = stableStorage.access;
+      var chunks = chunks;
+      var headVersion = stableStorage.headVersion;
+      var isDeleted = stableStorage.isDeleted;
+    }
+  };
+
+  stable var stableChats : [(ChatId, StableChat)] = [];
   stable var stableChatsByTable : [(Nat, ChatId)] = [];
 
   system func preupgrade() {
     // Serialize chats
-    stableChats := Iter.toArray(chats.entries());
+    let chatsArr : [(ChatId, Chat)] = Iter.toArray(chats.entries());
+    let stableChats : [(ChatId, StableChat)]  = Array.map<(ChatId, Chat), (ChatId, StableChat)>(chatsArr.entries(), func (pair) {let (chatId, chat) = pair; (chatId, chatToStable(chat))});
+    
     
     // Serialize table-chat mappings
     stableChatsByTable := Iter.toArray(chatsByTable.entries());
     
     // Update global counters
     nextChatId := nextChatId;
-    nextMessageId := nextMessageId;
+    nextNat := nextNat;
   };
 
   system func postupgrade() {
     // Restore chats
-    for ((chatId, chat) in stableChats.vals()) {
+    // Restore file storage using stable conversion
+    for ((chatId, stableChat) in stableChats) {
+      let chat = stableToChat(stableChat);
       chats.put(chatId, chat);
     };
     
@@ -137,9 +179,9 @@ actor {
     // Create chat
     let chat : Chat = {
       info = chatInfo;
-      messages = HashMap.HashMap<MessageId, Message>(0, Nat32.equal, Hash.hash);
+      messages = HashMap.HashMap<Nat, Message>(0, Nat32.equal, Hash.hash);
       participants = HashMap.HashMap<Principal, ParticipantInfo>(0, Principal.equal, Principal.hash);
-      nextMessageId = 0;
+      nextNat = 0;
     };
     
     // Add creator as participant
@@ -151,7 +193,7 @@ actor {
     
     // Create system message for chat creation
     let systemMessage : Message = {
-      id = chat.nextMessageId;
+      id = chat.nextNat;
       chatId = chatId;
       senderId = caller;
       content = #System("Chat created");
@@ -161,8 +203,8 @@ actor {
       replyTo = null;
     };
     
-    chat.messages.put(chat.nextMessageId, systemMessage);
-    chat.nextMessageId += 1;
+    chat.messages.put(chat.nextNat, systemMessage);
+    chat.nextNat += 1;
     
     #Ok(chatId);
   };
@@ -240,7 +282,7 @@ actor {
         
         // Create system message
         let systemMessage : Message = {
-          id = chat.nextMessageId;
+          id = chat.nextNat;
           chatId = chatId;
           senderId = newParticipant;
           content = #System("User joined the chat");
@@ -250,8 +292,8 @@ actor {
           replyTo = null;
         };
         
-        chat.messages.put(chat.nextMessageId, systemMessage);
-        chat.nextMessageId += 1;
+        chat.messages.put(chat.nextNat, systemMessage);
+        chat.nextNat += 1;
         
         #Ok(());
       };
@@ -290,7 +332,7 @@ actor {
         // Create system message
         let now = Types.now();
         let systemMessage : Message = {
-          id = chat.nextMessageId;
+          id = chat.nextNat;
           chatId = chatId;
           senderId = participantToRemove;
           content = #System("User left the chat");
@@ -300,8 +342,8 @@ actor {
           replyTo = null;
         };
         
-        chat.messages.put(chat.nextMessageId, systemMessage);
-        chat.nextMessageId += 1;
+        chat.messages.put(chat.nextNat, systemMessage);
+        chat.nextNat += 1;
         
         #Ok(());
       };
@@ -351,7 +393,7 @@ actor {
   public shared ({ caller }) func send_message(
     chatId : ChatId,
     content : MessageContent
-  ) : async Result<MessageId, Error> {
+  ) : async Result<Nat, Error> {
     
     // Validate message content
     if (not Types.validateMessageContent(content)) {
@@ -367,9 +409,9 @@ actor {
         
         // Create message
         let now = Types.now();
-        let messageId = chat.nextMessageId;
+        let Nat = chat.nextNat;
         let message : Message = {
-          id = messageId;
+          id = Nat;
           chatId = chatId;
           senderId = caller;
           content = content;
@@ -380,8 +422,8 @@ actor {
         };
         
         // Store message
-        chat.messages.put(messageId, message);
-        chat.nextMessageId += 1;
+        chat.messages.put(Nat, message);
+        chat.nextNat += 1;
         
         // Update chat's last message time
         chat.info.lastMessageAt := now;
@@ -400,7 +442,7 @@ actor {
           case null { /* Shouldn't happen */ };
         };
         
-        #Ok(messageId);
+        #Ok(Nat);
       };
       case null { #Err(#NotFound) };
     };
@@ -420,7 +462,7 @@ actor {
         
         // Convert messages to array and sort by timestamp (newest first)
         let messageArray = Iter.toArray(chat.messages.entries());
-        let sortedMessages = Array.sort(messageArray, func(a : (MessageId, Message), b : (MessageId, Message)) : { #less; #equal; #greater } {
+        let sortedMessages = Array.sort(messageArray, func(a : (Nat, Message), b : (Nat, Message)) : { #less; #equal; #greater } {
           if (a.1.timestamp > b.1.timestamp) { #less } else if (a.1.timestamp < b.1.timestamp) { #greater } else { #equal };
         });
         
@@ -457,7 +499,7 @@ actor {
   // Edit a message
   public shared ({ caller }) func edit_message(
     chatId : ChatId,
-    messageId : MessageId,
+    Nat : Nat,
     newContent : MessageContent
   ) : async Result<(), Error> {
     
@@ -474,7 +516,7 @@ actor {
         };
         
         // Get message
-        switch (chat.messages.get(messageId)) {
+        switch (chat.messages.get(Nat)) {
           case (?message) {
             // Check if user is the sender
             if (not Principal.equal(caller, message.senderId)) {
@@ -493,7 +535,7 @@ actor {
               replyTo = message.replyTo;
             };
             
-            chat.messages.put(messageId, updatedMessage);
+            chat.messages.put(Nat, updatedMessage);
             #Ok(());
           };
           case null { #Err(#NotFound) };
@@ -506,7 +548,7 @@ actor {
   // Delete a message
   public shared ({ caller }) func delete_message(
     chatId : ChatId,
-    messageId : MessageId
+    Nat : Nat
   ) : async Result<(), Error> {
     
     switch (chats.get(chatId)) {
@@ -517,7 +559,7 @@ actor {
         };
         
         // Get message
-        switch (chat.messages.get(messageId)) {
+        switch (chat.messages.get(Nat)) {
           case (?message) {
             // Check if user is the sender
             if (not Principal.equal(caller, message.senderId)) {
@@ -536,7 +578,7 @@ actor {
               replyTo = message.replyTo;
             };
             
-            chat.messages.put(messageId, updatedMessage);
+            chat.messages.put(Nat, updatedMessage);
             #Ok(());
           };
           case null { #Err(#NotFound) };
@@ -687,3 +729,4 @@ actor {
       };
     };
   };
+}

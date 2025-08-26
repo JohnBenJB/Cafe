@@ -19,7 +19,7 @@ module {
   
   // Unique identifiers
   public type ChatId = Nat32;
-  public type MessageId = Nat32;
+  public type Nat = Nat32;
   public type UserPrincipal = Principal;
   
   // ===== CHAT TYPES =====
@@ -37,8 +37,8 @@ module {
   // Chat room with internal data
   public type Chat = {
     info : ChatInfo;
-    messages : HashMap.HashMap<MessageId, Message>;
-    nextMessageId : MessageId;
+    messages : HashMap.HashMap<Nat, Message>;
+    nextNat : Nat;
     participants : HashMap.HashMap<Principal, ParticipantInfo>; // Maps user IDs to participant info
   };
   
@@ -60,26 +60,26 @@ module {
   
   // Individual message
   public type Message = {
-    id : MessageId;
+    id : Nat;
     chatId : ChatId;
     senderPrincipal : Principal;
     content : MessageContent;
     timestamp : Time.Time;
     isEdited : Bool;
     isDeleted : Bool;
-    replyTo : ?MessageId; // For reply functionality
+    replyTo : ?Nat; // For reply functionality
   };
   
   // Message for API responses
   public type MessageResponse = {
-    id : MessageId;
+    id : Nat;
     senderPrincipal : Principal;
     senderName : Text; // Resolved from user ID; mught later change or be removed
     content : MessageContent;
     timestamp : Time.Time;
     isEdited : Bool;
     isDeleted : Bool;
-    replyTo : ?MessageId;
+    replyTo : ?Nat;
   };
   
   // ===== EVENT TYPES =====
@@ -87,8 +87,8 @@ module {
   // Real-time events
   public type ChatEvent = {
     #MessageSent : MessageResponse;
-    #MessageEdited : { messageId : MessageId; newContent : MessageContent };
-    #MessageDeleted : MessageId;
+    #MessageEdited : { Nat : Nat; newContent : MessageContent };
+    #MessageDeleted : Nat;
     #UserJoined : { userPrincipal : Principal; username : Text };
     #UserLeft : { userPrincipal : Principal; username : Text };
     #UserTyping : { userPrincipal : Principal; isTyping : Bool };
@@ -148,7 +148,7 @@ module {
   public func validateMessageContent(content : MessageContent) : Bool {
     switch (content) {
       case (#Text(text)) {
-        Text.size(text) <= MAX_MESSAGE_LENGTH and Text.size(text) > 0;
+        Text.size(text) <= Nat32.toNat(MAX_MESSAGE_LENGTH) and Text.size(text) > 0;
       };
       case (#System(text)) {
         Text.size(text) > 0;
