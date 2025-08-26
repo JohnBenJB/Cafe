@@ -505,8 +505,8 @@
 
 /* Tables */
 .tables-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 1.5rem;
   margin-bottom: 1rem;
 }
@@ -520,7 +520,7 @@
   flex-direction: column;
   justify-content: space-between;
   cursor: pointer;
-  max-width: 600px;
+  min-width: 500px;
 }
 .table-card:hover {
   transform: translateY(-2px);

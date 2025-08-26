@@ -67,6 +67,93 @@
   padding: 8px 0;
 }
 
+.file-explorer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid #3e3e42;
+  background: #252526;
+}
+
+.file-explorer-header h3 {
+  margin: 0;
+  color: #cccccc;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* New File Creation Form */
+.new-file-form {
+  padding: 12px 16px;
+  border-bottom: 1px solid #3e3e42;
+  background: #2d2d30;
+}
+
+.new-file-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: #3e3e42;
+  border: 1px solid #5a5a5a;
+  border-radius: 4px;
+  color: #cccccc;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.new-file-input:focus {
+  outline: none;
+  border-color: #007acc;
+  background: #3e3e42;
+}
+
+.new-file-input::placeholder {
+  color: #888888;
+}
+
+.new-file-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.new-file-submit,
+.new-file-cancel {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.new-file-submit {
+  background: #007acc;
+  color: white;
+}
+
+.new-file-submit:hover:not(:disabled) {
+  background: #005a9e;
+}
+
+.new-file-submit:disabled {
+  background: #5a5a5a;
+  color: #888888;
+  cursor: not-allowed;
+}
+
+.new-file-cancel {
+  background: #5a5a5a;
+  color: #cccccc;
+}
+
+.new-file-cancel:hover {
+  background: #6a6a6a;
+}
+
+.file-list {
+  flex: 1;
+}
+
 .file-item {
   display: flex;
   align-items: center;
@@ -75,14 +162,24 @@
   cursor: pointer;
   transition: all 0.2s ease;
   color: #cccccc;
+  border-radius: 4px;
+  margin: 2px 8px;
 }
 
 .file-item:hover {
   background: #3e3e42;
+  color: #ffffff;
 }
 
 .file-item.active {
   background: #007acc;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 122, 204, 0.3);
+  font-weight: 500;
+}
+
+.file-item.active:hover {
+  background: #005a9e;
   color: white;
 }
 
@@ -264,6 +361,41 @@
   font-family: "JetBrains Mono", "Consolas", "Monaco", "Courier New", monospace !important;
   line-height: 20px !important;
   font-size: 14px !important;
+}
+
+/* Monaco Editor Specific Styles */
+.monaco-editor {
+  background: #1e1e1e !important;
+  color: #cccccc !important;
+}
+
+.monaco-editor .margin {
+  background: #1e1e1e !important;
+}
+
+.monaco-editor .monaco-editor-background {
+  background: #1e1e1e !important;
+}
+
+.monaco-editor .inputarea {
+  background: #1e1e1e !important;
+}
+
+/* Ensure the editor container has proper dimensions */
+.editor-content .monaco-editor {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Fix any potential white background issues */
+.editor-content {
+  background: #1e1e1e !important;
+}
+
+/* Ensure proper editor layout */
+.monaco-editor-container .monaco-editor {
+  border-radius: 0;
+  overflow: hidden;
 }
 
 /* Responsive design */

@@ -3,8 +3,6 @@ import { tableManagementService } from "../../services/tableManagement";
 import { authenticationService } from "../../services/authentication";
 import internetIdentityService from "../../services/internetIdentity";
 import MonacoEditor from "./MonacoEditor";
-import { storageService } from "../../services/storageService";
-import { communicationService } from "../../services/communicationService";
 import "./TableDetails.css";
 import caffeineIcon from "/caffeine.jpg";
 
@@ -33,65 +31,33 @@ const TableDetails = ({ table, onLeaveTable }) => {
   // Code editor state
   const [files, setFiles] = useState([
     {
-      id: 1,
+      id: "main-js",
       name: "main.js",
-      content: `// Main application entry point
-import React from 'react';
-import ReactDOM from 'react-dom';
-import App from './App';
+      content: `// Main JavaScript file
+console.log('Hello from main.js');
 
-// Initialize the application
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+function greet(name) {
+  return \`Hello, \${name}!\`;
+}
 
-// Development server configuration
-if (process.env.NODE_ENV === 'development') {
-  console.log('Development mode enabled');
-  console.log('Hot reload active');
-}`,
+// Export for use in other files
+export { greet };`,
       language: "javascript",
-      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 2,
+      id: "app-jsx",
       name: "App.jsx",
-      content: `import React, { useState, useEffect } from 'react';
+      content: `import React from 'react';
 import './App.css';
 
 function App() {
-  const [count, setCount] = useState(0);
-  const [theme, setTheme] = useState('light');
-
-  useEffect(() => {
-    document.title = \`Count: \${count}\`;
-  }, [count]);
-
-  const handleIncrement = () => {
-    setCount(prev => prev + 1);
-  };
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
-
   return (
-    <div className={\`App \${theme}\`}>
+    <div className="App">
       <header className="App-header">
         <h1>Welcome to Cafe</h1>
         <p>Your collaborative development workspace</p>
-        <div className="counter-section">
-          <p>Count: {count}</p>
-          <button onClick={handleIncrement}>
-            Increment
-          </button>
-        </div>
-        <button onClick={toggleTheme}>
-          Toggle Theme
-        </button>
       </header>
     </div>
   );
@@ -99,84 +65,40 @@ function App() {
 
 export default App;`,
       language: "javascript",
-      isActive: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 3,
+      id: "app-css",
       name: "App.css",
-      content: `/* Main application styles */
+      content: `/* App.css */
 .App {
   text-align: center;
-  min-height: 100vh;
-  transition: all 0.3s ease;
-}
-
-.App.light {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #333;
-}
-
-.App.dark {
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-  color: #ecf0f1;
+  padding: 20px;
 }
 
 .App-header {
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+  border-radius: 8px;
 }
 
 h1 {
-  font-size: 3rem;
-  margin-bottom: 20px;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-}
-
-p {
-  font-size: 1.2rem;
-  margin-bottom: 30px;
-  opacity: 0.9;
-}
-
-.counter-section {
-  margin: 30px 0;
-  padding: 20px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 10px;
-  backdrop-filter: blur(10px);
-}
-
-button {
-  padding: 12px 24px;
-  margin: 10px;
-  border: none;
-  border-radius: 8px;
-  background: #007bff;
-  color: white;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-button:hover {
-  background: #0056b3;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  color: #61dafb;
+  margin-bottom: 10px;
 }`,
       language: "css",
-      isActive: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 4,
+      id: "package-json",
       name: "package.json",
       content: `{
   "name": "cafe-project",
   "version": "1.0.0",
-  "description": "Collaborative development workspace",
+  "description": "A collaborative development workspace",
   "main": "index.js",
   "scripts": {
     "start": "react-scripts start",
@@ -188,74 +110,48 @@ button:hover {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1"
-  },
-  "devDependencies": {
-    "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
   }
 }`,
       language: "json",
-      isActive: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     {
-      id: 5,
+      id: "readme-md",
       name: "README.md",
       content: `# Cafe Project
 
-A collaborative development workspace built with React.
+A collaborative development workspace built with modern web technologies.
 
 ## Features
 
-- **Real-time Collaboration**: Work together with team members
-- **Code Editor**: Integrated VS Code-like editor
-- **File Management**: Organize and manage project files
-- **Live Preview**: See changes in real-time
-- **Version Control**: Track changes and collaborate
+- Real-time code editing
+- Multiple file support
+- Chat collaboration
+- User management
 
 ## Getting Started
 
 1. Clone the repository
 2. Install dependencies: \`npm install\`
 3. Start development server: \`npm start\`
-4. Open [http://localhost:3000](http://localhost:3000)
-
-## Project Structure
-
-\`\`\`
-src/
-├── components/     # React components
-├── styles/        # CSS and styling
-├── utils/         # Utility functions
-└── App.jsx        # Main application
-\`\`\`
 
 ## Contributing
 
-1. Fork the project
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
-
-## License
-
-MIT License - see LICENSE file for details`,
+Feel free to contribute to this project!`,
       language: "markdown",
-      isActive: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
   ]);
+  const [activeFile, setActiveFile] = useState(null);
+
+  // Set initial active file
+  useEffect(() => {
+    if (files.length > 0 && !activeFile) {
+      setActiveFile(files[0]);
+    }
+  }, [files, activeFile]);
 
   // Chat interface state
   const [messages, setMessages] = useState([]);
@@ -263,212 +159,17 @@ MIT License - see LICENSE file for details`,
   const [activeTab, setActiveTab] = useState("message");
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [showInviteOverlay, setShowInviteOverlay] = useState(false);
-  const [chatId, setChatId] = useState(null);
-  const [isChatLoading, setIsChatLoading] = useState(false);
-  const [typingUsers, setTypingUsers] = useState([]);
-  const [isTyping, setIsTyping] = useState(false);
+  // Chat functionality removed - using mock data for demo
   const [loadingStates, setLoadingStates] = useState({
     deleteTable: false,
     leaveTable: false,
     reloadTable: false,
   });
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [isChatInitialized, setIsChatInitialized] = useState(false);
 
   // Auto-scroll when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  // Load files from storage canister
-  const loadFilesFromStorage = useCallback(async () => {
-    if (!table?.id) return;
-
-    try {
-      console.log("🔍 Loading files from storage for table:", table);
-      console.log("🔍 Table ID:", table.id, "Type:", typeof table.id);
-
-      const identity = internetIdentityService.getIdentity();
-      if (!identity) {
-        console.warn("No identity available for loading files");
-        return;
-      }
-
-      // Initialize storage service if not already done
-      if (!storageService.isReady()) {
-        await storageService.initialize(identity);
-      }
-
-      // Check if table exists in storage
-      const tableExists = await storageService.ensureTableExists(table.id);
-      console.log("🔍 Table exists in storage:", tableExists);
-
-      let fileIds = [];
-
-      if (!tableExists) {
-        console.log(
-          "ℹ️ Table doesn't exist in storage yet, creating sample files..."
-        );
-        // Create sample files for new table
-        try {
-          // Create a welcome file
-          const welcomeFileId = await storageService.createFile(
-            table.id,
-            "welcome.md",
-            "text/markdown",
-            `# Welcome to ${table.title || "Your Table"}!
-
-This is your collaborative workspace. You can:
-
-- Create new files using the + button
-- Edit existing files
-- Collaborate with team members
-- Save your work automatically
-
-## Getting Started
-
-1. Click the + button to create a new file
-2. Choose your preferred programming language
-3. Start coding and collaborating!
-
-Happy coding! 🚀`
-          );
-
-          // Create a sample JavaScript file
-          const jsFileId = await storageService.createFile(
-            table.id,
-            "main.js",
-            "text/javascript",
-            `// Main application file
-console.log("Hello from Cafe!");
-
-// Your code here
-function greet(name) {
-  return \`Hello, \${name}! Welcome to Cafe.\`;
-}
-
-// Example usage
-console.log(greet("Developer"));`
-          );
-
-          console.log("✅ Created sample files:", {
-            welcomeFileId,
-            jsFileId,
-          });
-
-          // Now try to list files again
-          fileIds = await storageService.listFiles(table.id);
-          console.log("🔍 File IDs after creation:", fileIds);
-        } catch (createError) {
-          console.warn("⚠️ Failed to create sample files:", createError);
-          setFiles([]);
-          return;
-        }
-      } else {
-        // Get file IDs for this table
-        console.log(
-          "🔍 Calling storageService.listFiles with tableId:",
-          table.id
-        );
-        fileIds = await storageService.listFiles(table.id);
-        console.log("🔍 File IDs returned:", fileIds);
-      }
-
-      if (fileIds && fileIds.length > 0) {
-        // Load file content for each file
-        const loadedFiles = await Promise.all(
-          fileIds.map(async (fileId, index) => {
-            try {
-              const content = await storageService.getFileContent(fileId);
-
-              // Since we can't get metadata from the canister, create a basic file object
-              // The user will need to set the name when they first edit the file
-              return {
-                id: fileId,
-                name: `file-${fileId}.txt`, // Default name since we can't get it from canister
-                content: content,
-                language: "plaintext", // Default language
-                isActive: index === 0, // First file is active
-              };
-            } catch (error) {
-              console.warn(`Failed to load file ${fileId}:`, error);
-              return null;
-            }
-          })
-        );
-
-        // Filter out failed loads
-        const validFiles = loadedFiles.filter((f) => f !== null);
-        if (validFiles.length > 0) {
-          setFiles(validFiles);
-          console.log("✅ Loaded", validFiles.length, "files from storage");
-        }
-      } else {
-        console.log("ℹ️ No files found in storage for this table");
-
-        // Create some sample files for new tables
-        try {
-          console.log("🔧 Creating sample files for new table...");
-          const identity = internetIdentityService.getIdentity();
-          if (identity) {
-            // Create a welcome file
-            const welcomeFileId = await storageService.createFile(
-              table.id,
-              "welcome.md",
-              "text/markdown",
-              `# Welcome to ${table.title || "Your Table"}!
-
-This is your collaborative workspace. You can:
-
-- Create new files using the + button
-- Edit existing files
-- Collaborate with team members
-- Save your work automatically
-
-## Getting Started
-
-1. Click the + button to create a new file
-2. Choose your preferred programming language
-3. Start coding and collaborating!
-
-Happy coding! 🚀`
-            );
-
-            // Create a sample JavaScript file
-            const jsFileId = await storageService.createFile(
-              table.id,
-              "main.js",
-              "text/javascript",
-              `// Main application file
-console.log("Hello from Cafe!");
-
-// Your code here
-function greet(name) {
-  return \`Hello, \${name}! Welcome to Cafe.\`;
-}
-
-// Example usage
-console.log(greet("Developer"));`
-            );
-
-            console.log("✅ Created sample files:", {
-              welcomeFileId,
-              jsFileId,
-            });
-
-            // Load the newly created files
-            await loadFilesFromStorage();
-          }
-        } catch (createError) {
-          console.warn("⚠️ Failed to create sample files:", createError);
-          setFiles([]);
-        }
-      }
-    } catch (error) {
-      console.error("❌ Failed to load files from storage:", error);
-      setFiles([]);
-    }
-  }, [table?.id]);
 
   // Initialize services and load data
   useEffect(() => {
@@ -544,7 +245,7 @@ console.log(greet("Developer"));`
             if (table.creator) {
               setCollaborators([
                 {
-                  principal: String(table.creator), // Convert to string if it's a Principal
+                  principal: String(table.creator),
                   username: "Table Creator",
                   email: "",
                   github: "",
@@ -587,11 +288,9 @@ console.log(greet("Developer"));`
           }
         }
 
-        // Load files from storage
-        await loadFilesFromStorage();
-
         // Initialize chat
-        await initializeChat();
+        // Chat functionality removed - using mock data for demo
+        console.log("ℹ️ Chat functionality is now frontend-only for demo");
 
         setIsLoading(false);
       } catch (error) {
@@ -604,7 +303,7 @@ console.log(greet("Developer"));`
     if (table?.id) {
       initializeServices();
     }
-  }, [table?.id, loadFilesFromStorage]);
+  }, [table?.id]);
 
   // Reload current section state
   const reloadCurrentSection = useCallback(async () => {
@@ -612,7 +311,8 @@ console.log(greet("Developer"));`
       setLoadingStates((prev) => ({ ...prev, reloadTable: true }));
       switch (activeSection) {
         case "table":
-          await loadFilesFromStorage();
+          // Files are managed locally, no reload needed
+          console.log("ℹ️ Files are managed locally, no reload needed");
           break;
         case "collab":
           // Reload chat messages or any collab-specific data
@@ -624,7 +324,7 @@ console.log(greet("Developer"));`
           // Reload resources if needed
           break;
         case "settings":
-          await loadFilesFromStorage();
+          // Settings are managed locally, no reload needed
           break;
         default:
           break;
@@ -634,13 +334,14 @@ console.log(greet("Developer"));`
     } finally {
       setLoadingStates((prev) => ({ ...prev, reloadTable: false }));
     }
-  }, [activeSection, loadFilesFromStorage]);
+  }, [activeSection]);
 
   useEffect(() => {
     if (table) {
-      loadFilesFromStorage();
+      // Files are already initialized with sample content, no need to load from storage
+      console.log("ℹ️ Table loaded, files are managed locally");
     }
-  }, [loadFilesFromStorage, table]);
+  }, [table]);
 
   // Reload section when activeSection changes
   useEffect(() => {
@@ -657,8 +358,7 @@ console.log(greet("Developer"));`
     try {
       setLoadingStates((prev) => ({ ...prev, leaveTable: true }));
       await tableManagementService.leaveTable(table.id);
-      // Reload current state before leaving
-      await loadFilesFromStorage();
+      // No need to reload files since they're managed locally
       if (onLeaveTable) {
         onLeaveTable();
       }
@@ -682,8 +382,7 @@ console.log(greet("Developer"));`
     try {
       setLoadingStates((prev) => ({ ...prev, deleteTable: true }));
       await tableManagementService.deleteTable(table.id);
-      // Reload current state before leaving
-      await loadFilesFromStorage();
+      // No need to reload files since they're managed locally
       if (onLeaveTable) {
         onLeaveTable();
       }
@@ -711,243 +410,38 @@ console.log(greet("Developer"));`
     (currentUser.principal === table.creator ||
       String(currentUser.principal) === String(table.creator));
 
-  // Chat functions
-  const initializeChat = useCallback(async () => {
-    if (!table?.id) {
-      console.warn("⚠️ No table ID available for chat initialization");
-      return;
-    }
-
-    const identity = internetIdentityService.getIdentity();
-    if (!identity) {
-      console.warn("⚠️ No identity available for chat initialization");
-      return;
-    }
-
-    try {
-      setIsChatInitialized(false);
-      console.log("🔧 Initializing chat for table:", table.id);
-      console.log("🔧 Identity:", identity.getPrincipal().toText());
-      console.log("🔧 Current user:", currentUser);
-
-      // Initialize communication service if not already done
-      if (!communicationService.isReady()) {
-        console.log("🔧 Communication service not ready, initializing...");
-        await communicationService.initialize(identity);
-        console.log("✅ Communication service initialized");
-      } else {
-        console.log("✅ Communication service already ready");
-      }
-
-      // Get or create chat for this table
-      console.log("🔧 Getting/creating chat for table:", table.id);
-      const chatId = await communicationService.getChatByTable(table.id);
-
-      if (!chatId) {
-        throw new Error("Failed to get or create chat ID");
-      }
-
-      setChatId(chatId);
-      console.log("✅ Chat initialized with ID:", chatId);
-
-      // Load existing messages first
-      await loadChatMessages(chatId);
-
-      // Check if this is a new chat by looking at the messages
-      const isNewChat = messages.length === 0;
-
-      if (isNewChat) {
-        try {
-          const welcomeMsg = `Welcome to ${
-            table.title || "this table"
-          }! 🚀\n\nThis is your collaborative workspace. Start chatting with your team members!`;
-          console.log("🔧 Sending welcome message:", welcomeMsg);
-          await communicationService.sendMessage(chatId, welcomeMsg, "System");
-          console.log("✅ Welcome message sent");
-
-          // Reload messages to show the welcome message
-          await syncMessages();
-        } catch (error) {
-          console.warn("⚠️ Failed to send welcome message:", error);
-        }
-      }
-
-      // Send system message that user joined (only if not a new chat)
-      if (!isNewChat) {
-        try {
-          const joinMsg = `${
-            currentUser?.username || "A user"
-          } joined the conversation`;
-          console.log("🔧 Sending join message:", joinMsg);
-          await communicationService.sendMessage(chatId, joinMsg, "System");
-          console.log("✅ Join message sent");
-
-          // Reload messages to show the join message
-          await syncMessages();
-        } catch (error) {
-          console.warn("⚠️ Failed to send join message:", error);
-        }
-      }
-
-      setIsChatInitialized(true);
-      console.log("✅ Chat initialization completed successfully");
-    } catch (error) {
-      console.error("❌ Failed to initialize chat:", error);
-      setError(`Chat initialization failed: ${error.message}`);
-      setIsChatInitialized(false);
-    }
-  }, [table?.id, table?.title, messages.length, currentUser?.username]);
-
-  const loadChatMessages = useCallback(
-    async (chatId) => {
-      if (!chatId) return;
-
-      try {
-        setIsChatLoading(true);
-        console.log("🔧 Loading messages for chat:", chatId);
-
-        const messagesResult = await communicationService.getMessages(
-          chatId,
-          0,
-          100
-        );
-
-        if (messagesResult && messagesResult.items) {
-          console.log("🔍 Raw messages from canister:", messagesResult.items);
-
-          // Convert canister messages to our format
-          const formattedMessages = messagesResult.items.map((msg) => {
-            console.log("🔍 Processing message:", msg);
-
-            const formatted = {
-              id: msg.id,
-              author: msg.senderName || "Unknown User",
-              content:
-                msg.content.Text || msg.content.System || "Unknown content",
-              timestamp: new Date(Number(msg.timestamp)).toLocaleTimeString(
-                "en-US",
-                {
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: true,
-                }
-              ),
-              date: new Date(Number(msg.timestamp)).toLocaleDateString(
-                "en-US",
-                {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                }
-              ),
-              type: msg.content.System ? "system" : "message",
-              senderPrincipal: msg.senderPrincipal,
-              isOwnMessage: msg.senderPrincipal === currentUser?.principal,
-            };
-
-            console.log("🔍 Formatted message:", formatted);
-            return formatted;
-          });
-
-          console.log("🔍 Setting messages state with:", formattedMessages);
-          setMessages(formattedMessages);
-          console.log("✅ Synced", formattedMessages.length, "messages");
-        } else {
-          console.log("⚠️ No messages or invalid structure:", messagesResult);
-        }
-      } catch (error) {
-        console.error("❌ Failed to load chat messages:", error);
-      } finally {
-        setIsChatLoading(false);
-      }
-    },
-    [currentUser?.principal]
-  );
-
   const handleSendMessage = async () => {
     if (!newMessage.trim()) {
       console.warn("⚠️ Cannot send message: No message content");
       return;
     }
 
-    if (!chatId) {
-      console.warn("⚠️ Cannot send message: No chat ID available");
-      console.log("🔍 Chat initialization status:", {
-        chatId: chatId,
-        isChatInitialized: isChatInitialized,
-        tableId: table?.id,
-        communicationServiceReady: communicationService.isReady(),
-      });
-
-      // Try to reinitialize chat if it's not ready
-      if (!isChatInitialized && table?.id) {
-        console.log("🔄 Attempting to reinitialize chat...");
-        try {
-          await initializeChat();
-          // Wait a moment for state to update
-          setTimeout(() => {
-            if (chatId) {
-              console.log("✅ Chat reinitialized, retrying send...");
-              handleSendMessage();
-            } else {
-              alert(
-                "Chat initialization failed. Please refresh the page and try again."
-              );
-            }
-          }, 1000);
-        } catch (error) {
-          console.error("❌ Failed to reinitialize chat:", error);
-          alert(
-            "Failed to initialize chat. Please refresh the page and try again."
-          );
-        }
-      } else {
-        alert(
-          "Chat is not ready. Please wait for initialization or refresh the page."
-        );
-      }
-      return;
-    }
-
     try {
-      setIsSendingMessage(true);
-      console.log("🔧 Sending message:", {
+      console.log("🔧 Sending message locally:", {
         message: newMessage.trim(),
-        chatId: chatId,
         user: currentUser?.username || currentUser?.principal,
       });
 
-      // Send message to canister
-      const messageId = await communicationService.sendMessage(
-        chatId,
-        newMessage.trim()
-      );
-      console.log("✅ Message sent successfully with ID:", messageId);
+      // Add message to local state
+      const newMsg = {
+        id: Date.now(),
+        author: currentUser?.username || "Demo User",
+        content: newMessage.trim(),
+        timestamp: new Date().toLocaleTimeString(),
+        date: new Date().toLocaleDateString(),
+        type: "message",
+        isOwnMessage: true,
+      };
 
-      // Clear input immediately
+      setMessages((prev) => [...prev, newMsg]);
       setNewMessage("");
 
-      // Trigger immediate sync to get the latest messages
-      await syncMessages();
-
-      // Auto-scroll to bottom after syncing
+      // Auto-scroll to bottom
       setTimeout(scrollToBottom, 100);
+
+      console.log("✅ Message added locally for demo");
     } catch (error) {
-      console.error("❌ Failed to send message:", error);
-
-      // Show user-friendly error message
-      const errorMessage = error.message || "Failed to send message";
-      console.error("Error details:", {
-        error: errorMessage,
-        chatId: chatId,
-        message: newMessage.trim(),
-        user: currentUser?.username || currentUser?.principal,
-      });
-
-      // Could add a toast notification here
-      alert(`Failed to send message: ${errorMessage}`);
-    } finally {
-      setIsSendingMessage(false);
+      console.error("❌ Failed to add message locally:", error);
     }
   };
 
@@ -955,43 +449,18 @@ console.log(greet("Developer"));`
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
-    } else if (e.key === "Enter" && e.shiftKey) {
-      // Allow new lines with Shift+Enter
-      return;
-    }
-
-    // Set typing status when user starts typing (for any key)
-    if (!isTyping && chatId && e.target.value.trim()) {
-      setIsTyping(true);
-      communicationService.setTypingStatus(chatId, true);
     }
   };
 
   const handleMessageInputChange = (e) => {
     setNewMessage(e.target.value);
-
-    // Set typing status
-    if (!isTyping && chatId && e.target.value.trim()) {
-      setIsTyping(true);
-      communicationService.setTypingStatus(chatId, true);
-    }
-
-    // Clear typing status after a delay
-    if (isTyping) {
-      clearTimeout(typingTimeout.current);
-      typingTimeout.current = setTimeout(() => {
-        setIsTyping(false);
-        if (chatId) {
-          communicationService.setTypingStatus(chatId, false);
-        }
-      }, 1000);
-    }
   };
 
-  // Typing timeout ref
-  const typingTimeout = useRef(null);
+  // Mock typing indicator for demo
+  const renderTypingIndicator = () => {
+    return null; // No typing indicator in demo
+  };
 
-  // Button functionality functions
   const handleComingSoon = () => {
     setShowComingSoon(true);
     setTimeout(() => setShowComingSoon(false), 3000);
@@ -1009,31 +478,6 @@ console.log(greet("Developer"));`
 
   const handleWelcomeMessage = () => {
     console.log("Setting welcome message");
-    handleComingSoon();
-  };
-
-  const handleFormatText = (format) => {
-    console.log(`Applying format: ${format}`);
-    handleComingSoon();
-  };
-
-  const handleMention = () => {
-    console.log("Opening mention picker");
-    handleComingSoon();
-  };
-
-  const handleEmoji = () => {
-    console.log("Opening emoji picker");
-    handleComingSoon();
-  };
-
-  const handleFileUpload = () => {
-    console.log("Opening file upload");
-    handleComingSoon();
-  };
-
-  const handleVoiceMessage = () => {
-    console.log("Starting voice recording");
     handleComingSoon();
   };
 
@@ -1082,7 +526,7 @@ console.log(greet("Developer"));`
       setInviteSearch("");
 
       // Reload current state
-      await loadFilesFromStorage();
+      // No need to reload files since they're managed locally
     } catch (e) {
       setError(e?.message || "Failed to send invitation");
     } finally {
@@ -1106,225 +550,188 @@ console.log(greet("Developer"));`
       prev.map((f) => (f.id === fileId ? { ...f, content } : f))
     );
 
-    // Persist to storage canister
-    (async () => {
-      try {
-        const identity = internetIdentityService.getIdentity();
-        if (!identity) return;
-        await storageService.initialize(identity);
-        await storageService.updateFileContent(fileId, content);
-      } catch (e) {
-        console.warn("Failed to persist file to storage:", e);
-      }
-    })();
-  };
-
-  const handleCreateFileRemote = async (name) => {
-    // Ensure storage is initialized for this table
-    const identity = internetIdentityService.getIdentity();
-    if (!identity) throw new Error("No identity available");
-    await storageService.initialize(identity, table.id);
-
-    // Pick MIME based on extension (simple)
-    const lower = String(name).toLowerCase();
-    const mime = lower.endsWith(".md")
-      ? "text/markdown"
-      : lower.endsWith(".json")
-      ? "application/json"
-      : lower.endsWith(".css")
-      ? "text/css"
-      : lower.endsWith(".html")
-      ? "text/html"
-      : "text/plain";
-
-    const fileId = await storageService.createFile(table.id, name, mime, "");
-
-    const language = guessLanguage(name);
-    const created = {
-      id: Number(fileId),
-      name,
-      content: "",
-      language,
-      isActive: true,
-    };
-    // Update local files list
-    setFiles((prev) => {
-      const deactivated = prev.map((f) => ({ ...f, isActive: false }));
-      return [...deactivated, created];
+    // Files are managed locally for demo - no need to persist to storage
+    console.log("✅ File content updated locally:", {
+      fileId,
+      contentLength: content.length,
     });
-    return created;
   };
 
-  // Add new empty file locally and set active
-  const guessLanguage = (name) => {
-    const lower = String(name || "").toLowerCase();
-    if (lower.endsWith(".js") || lower.endsWith(".jsx")) return "javascript";
-    if (lower.endsWith(".ts") || lower.endsWith(".tsx")) return "typescript";
-    if (lower.endsWith(".json")) return "json";
-    if (lower.endsWith(".css")) return "css";
-    if (lower.endsWith(".md")) return "markdown";
-    if (lower.endsWith(".html")) return "html";
-    if (lower.endsWith(".py")) return "python";
-    if (lower.endsWith(".rs")) return "rust";
-    if (lower.endsWith(".go")) return "go";
-    if (lower.endsWith(".java")) return "java";
-    return "plaintext";
-  };
-
-  // Check for typing users periodically
+  // Check for typing users periodically - Mock implementation for demo
   useEffect(() => {
-    if (!chatId) return;
+    // No need to check typing users in demo
+  }, []);
 
-    const checkTypingUsers = async () => {
-      try {
-        const typing = await communicationService.getTypingUsers(chatId);
-        setTypingUsers(typing);
-      } catch (error) {
-        console.warn("Failed to get typing users:", error);
-      }
+  // Frontend file creation system
+  const handleCreateNewFile = (fileName) => {
+    if (!fileName) return;
+
+    // Generate unique file ID
+    const fileId = `file_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
+    // Determine file type and initial content based on extension
+    const fileExtension = fileName.split(".").pop()?.toLowerCase();
+    let initialContent = "";
+    let language = "javascript";
+
+    switch (fileExtension) {
+      case "js":
+        initialContent = `// ${fileName}\nconsole.log('Hello from ${fileName}');`;
+        language = "javascript";
+        break;
+      case "jsx":
+        initialContent = `import React from 'react';\n\nfunction ${
+          fileName.split(".")[0]
+        }() {\n  return (\n    <div>\n      <h1>${
+          fileName.split(".")[0]
+        }</h1>\n    </div>\n  );\n}\n\nexport default ${
+          fileName.split(".")[0]
+        };`;
+        language = "javascript";
+        break;
+      case "ts":
+        initialContent = `// ${fileName}\nconst message: string = 'Hello from ${fileName}';\nconsole.log(message);`;
+        language = "typescript";
+        break;
+      case "tsx":
+        initialContent = `import React from 'react';\n\ninterface ${
+          fileName.split(".")[0]
+        }Props {\n  // Add your props here\n}\n\nfunction ${
+          fileName.split(".")[0]
+        }({}: ${
+          fileName.split(".")[0]
+        }Props) {\n  return (\n    <div>\n      <h1>${
+          fileName.split(".")[0]
+        }</h1>\n    </div>\n  );\n}\n\nexport default ${
+          fileName.split(".")[0]
+        };`;
+        language = "typescript";
+        break;
+      case "css":
+        initialContent = `/* ${fileName} */\n.${fileName
+          .split(".")[0]
+          .toLowerCase()} {\n  /* Add your styles here */\n}`;
+        language = "css";
+        break;
+      case "scss":
+        initialContent = `// ${fileName}\n.${fileName
+          .split(".")[0]
+          .toLowerCase()} {\n  // Add your SCSS styles here\n}`;
+        language = "scss";
+        break;
+      case "html":
+        initialContent = `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>${
+          fileName.split(".")[0]
+        }</title>\n</head>\n<body>\n  <h1>${
+          fileName.split(".")[0]
+        }</h1>\n  <script src="script.js"></script>\n</body>\n</html>`;
+        language = "html";
+        break;
+      case "py":
+        initialContent = `# ${fileName}\nprint("Hello from ${fileName}")`;
+        language = "python";
+        break;
+      case "java":
+        initialContent = `public class ${
+          fileName.split(".")[0]
+        } {\n    public static void main(String[] args) {\n        System.out.println("Hello from ${fileName}");\n    }\n}`;
+        language = "java";
+        break;
+      case "cpp":
+        initialContent = `#include <iostream>\n\nint main() {\n    std::cout << "Hello from ${fileName}" << std::endl;\n    return 0;\n}`;
+        language = "cpp";
+        break;
+      case "rs":
+        initialContent = `fn main() {\n    println!("Hello from ${fileName}");\n}`;
+        language = "rust";
+        break;
+      case "go":
+        initialContent = `package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello from ${fileName}")\n}`;
+        language = "go";
+        break;
+      case "php":
+        initialContent = `<?php\n// ${fileName}\necho "Hello from ${fileName}";\n?>`;
+        language = "php";
+        break;
+      case "rb":
+        initialContent = `# ${fileName}\nputs "Hello from ${fileName}"`;
+        language = "ruby";
+        break;
+      case "sql":
+        initialContent = `-- ${fileName}\n-- Add your SQL queries here\nSELECT * FROM table_name;`;
+        language = "sql";
+        break;
+      case "json":
+        initialContent = `{\n  "name": "${
+          fileName.split(".")[0]
+        }",\n  "description": "A new file",\n  "version": "1.0.0"\n}`;
+        language = "json";
+        break;
+      case "md":
+        initialContent = `# ${
+          fileName.split(".")[0]
+        }\n\nThis is a new markdown file.\n\n## Features\n\n- Add your content here\n- Use markdown syntax\n- Create beautiful documentation`;
+        language = "markdown";
+        break;
+      case "xml":
+        initialContent = `<?xml version="1.0" encoding="UTF-8"?>\n<root>\n  <title>${
+          fileName.split(".")[0]
+        }</title>\n  <content>Add your XML content here</content>\n</root>`;
+        language = "xml";
+        break;
+      case "yaml":
+      case "yml":
+        initialContent = `# ${fileName}\nname: ${
+          fileName.split(".")[0]
+        }\ndescription: A new YAML file\nversion: 1.0.0`;
+        language = "yaml";
+        break;
+      case "toml":
+        initialContent = `# ${fileName}\nname = "${
+          fileName.split(".")[0]
+        }"\ndescription = "A new TOML file"\nversion = "1.0.0"`;
+        language = "toml";
+        break;
+      default:
+        initialContent = `// ${fileName}\n// This is a new file\n// Add your content here`;
+        language = "plaintext";
+    }
+
+    const newFile = {
+      id: fileId,
+      name: fileName,
+      content: initialContent,
+      language: language,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
-    const interval = setInterval(checkTypingUsers, 2000);
-    return () => clearInterval(interval);
-  }, [chatId]);
+    // Add to files array
+    setFiles((prev) => [...prev, newFile]);
 
-  // Add typing indicator below messages
-  const renderTypingIndicator = () => {
-    if (typingUsers.length === 0) return null;
+    // Set as active file
+    setActiveFile(newFile);
 
-    const currentUserPrincipal = currentUser?.principal;
-    const otherTypingUsers = typingUsers.filter(
-      (p) => p !== currentUserPrincipal
-    );
-
-    if (otherTypingUsers.length === 0) return null;
-
-    return (
-      <div className="typing-indicator">
-        <div className="typing-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-        <span className="typing-text">
-          {otherTypingUsers.length === 1
-            ? "Someone"
-            : `${otherTypingUsers.length} people`}{" "}
-          is typing...
-        </span>
-      </div>
-    );
+    console.log("✅ New file created:", {
+      fileName,
+      fileId,
+      language,
+      contentLength: initialContent.length,
+    });
   };
 
-  // Real-time message synchronization
-  const syncMessages = useCallback(async () => {
-    if (!chatId) return;
-
-    try {
-      console.log("🔄 Syncing messages...");
-      const messagesResult = await communicationService.getMessages(
-        chatId,
-        0,
-        100
-      );
-
-      if (messagesResult && messagesResult.items) {
-        console.log("🔍 Raw messages from canister:", messagesResult.items);
-
-        // Convert canister messages to our format
-        const formattedMessages = messagesResult.items.map((msg) => {
-          console.log("🔍 Processing message:", msg);
-
-          const formatted = {
-            id: msg.id,
-            author: msg.senderName || "Unknown User",
-            content:
-              msg.content.Text || msg.content.System || "Unknown content",
-            timestamp: new Date(Number(msg.timestamp)).toLocaleTimeString(
-              "en-US",
-              {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              }
-            ),
-            date: new Date(Number(msg.timestamp)).toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            }),
-            type: msg.content.System ? "system" : "message",
-            senderPrincipal: msg.senderPrincipal,
-            isOwnMessage: msg.senderPrincipal === currentUser?.principal,
-          };
-
-          console.log("🔍 Formatted message:", formatted);
-          return formatted;
-        });
-
-        console.log("🔍 Setting messages state with:", formattedMessages);
-        setMessages(formattedMessages);
-        console.log("✅ Synced", formattedMessages.length, "messages");
-      } else {
-        console.log("⚠️ No messages or invalid structure:", messagesResult);
-      }
-    } catch (error) {
-      console.error("❌ Failed to sync messages:", error);
-    }
-  }, [chatId, currentUser?.principal]);
-
-  // Periodic message synchronization for real-time updates
-  useEffect(() => {
-    if (!chatId) return;
-
-    // Initial sync
-    syncMessages();
-
-    // Set up periodic sync every 3 seconds
-    const syncInterval = setInterval(syncMessages, 3000);
-
-    return () => clearInterval(syncInterval);
-  }, [chatId, syncMessages]);
-
-  // Test function to debug communication service
-  const testCommunicationService = async () => {
-    if (!chatId) {
-      alert("No chat ID available");
-      return;
-    }
-
-    try {
-      console.log("🧪 Testing communication service...");
-      console.log("🧪 Chat ID:", chatId);
-      console.log("🧪 Service ready:", communicationService.isReady());
-
-      // Try to send a test message
-      const testMessage = "🧪 Test message - " + new Date().toISOString();
-      console.log("🧪 Sending test message:", testMessage);
-
-      const messageId = await communicationService.sendMessage(
-        chatId,
-        testMessage
-      );
-      console.log("✅ Test message sent successfully with ID:", messageId);
-
-      // Try to get messages
-      const messagesResult = await communicationService.getMessages(
-        chatId,
-        0,
-        10
-      );
-      console.log("✅ Test getMessages result:", messagesResult);
-
-      alert("Test successful! Check console for details.");
-
-      // Reload messages to show the test message
-      await syncMessages();
-    } catch (error) {
-      console.error("❌ Test failed:", error);
-      alert(`Test failed: ${error.message}`);
+  // Handle file selection
+  const handleFileSelect = (fileId) => {
+    const selectedFile = files.find((f) => f.id === fileId);
+    if (selectedFile) {
+      setActiveFile(selectedFile);
+      console.log("✅ File selected:", selectedFile.name);
     }
   };
+
+  // Button functionality functions
 
   if (isLoading) {
     return (
@@ -1752,8 +1159,11 @@ console.log(greet("Developer"));`
           <div className="pa-section-content code-editor-section">
             <MonacoEditor
               files={files}
+              activeFile={activeFile}
               onFileChange={handleFileContentChange}
-              onCreateFile={handleCreateFileRemote}
+              onCreateFile={handleCreateNewFile}
+              onFileSelect={handleFileSelect}
+              currentUser={currentUser}
             />
           </div>
         )}
@@ -1885,12 +1295,7 @@ console.log(greet("Developer"));`
 
               {/* Chat Messages */}
               <div className="chat-messages" ref={messagesContainerRef}>
-                {isChatLoading ? (
-                  <div className="chat-loading">
-                    <div className="loading-spinner"></div>
-                    <p>Loading messages...</p>
-                  </div>
-                ) : messages.length === 0 ? (
+                {messages.length === 0 ? (
                   <div className="no-messages">
                     <div className="no-messages-icon">
                       <svg
@@ -1900,7 +1305,7 @@ console.log(greet("Developer"));`
                         fill="none"
                       >
                         <path
-                          d="M8 12h8M8 16h5M12 8h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.98L3 20l1.98-4.745A9.863 9.863 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                          d="M8 12h8M8 16h5M12 8h.01M21 12c0 4.418-4.03 8-9 8a9.863 0 01-4.255-.98L3 20l1.98-4.745A9.863 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
@@ -1954,201 +1359,35 @@ console.log(greet("Developer"));`
 
               {/* Message Input */}
               <div className="message-input-container">
-                {/* Test button for debugging */}
-                <div className="debug-tools">
-                  <button
-                    onClick={testCommunicationService}
-                    className="test-btn"
-                    title="Test communication service"
-                  >
-                    🧪 Test Communication
-                  </button>
-                  <button
-                    onClick={() => initializeChat()}
-                    className="test-btn init-btn"
-                    title="Initialize chat manually"
-                  >
-                    🔄 Init Chat
-                  </button>
-                  <span className="debug-info">
-                    Chat ID: {chatId || "None"} | Service Ready:{" "}
-                    {communicationService.isReady() ? "✅" : "❌"} | Chat Init:{" "}
-                    {isChatInitialized ? "✅" : "❌"}
-                  </span>
-                  <span className="debug-info">
-                    Messages: {messages.length} | Last Update:{" "}
-                    {new Date().toLocaleTimeString()}
-                  </span>
-                </div>
-
-                <div className="formatting-toolbar">
-                  <button
-                    className="format-btn"
-                    onClick={() => handleFormatText("bold")}
-                  >
-                    B
-                  </button>
-                  <button
-                    className="format-btn"
-                    onClick={() => handleFormatText("italic")}
-                  >
-                    I
-                  </button>
-                  <button
-                    className="format-btn"
-                    onClick={() => handleFormatText("strikethrough")}
-                  >
-                    S
-                  </button>
-                  <button
-                    className="format-btn"
-                    onClick={() => handleFormatText("bullet-list")}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path
-                        d="M2 4h8v1H2V4zm0 3h8v1H2V7z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    className="format-btn"
-                    onClick={() => handleFormatText("numbered-list")}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path
-                        d="M2 4h8v1H2V4zm0 3h8v1H2V7z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    className="format-btn"
-                    onClick={() => handleFormatText("code")}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path
-                        d="M4 2L2 4l2 2M8 2l2 2-2 2"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    className="format-btn"
-                    onClick={() => handleFormatText("link")}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path
-                        d="M4 6h4M6 4v4"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                      />
-                    </svg>
-                  </button>
-                </div>
-
                 <div className="input-wrapper">
                   <textarea
                     className="message-input"
-                    placeholder="Type your message here..."
-                    rows="1"
+                    placeholder="Type your message..."
                     value={newMessage}
                     onChange={handleMessageInputChange}
                     onKeyPress={handleKeyPress}
+                    rows="1"
                   />
-                  <div className="input-actions">
-                    <button
-                      className="action-btn primary send-btn"
-                      onClick={handleSendMessage}
-                      disabled={
-                        !newMessage.trim() || !chatId || isSendingMessage
-                      }
-                      title="Send message (Enter)"
+                  <button
+                    className="action-btn primary send-btn"
+                    onClick={handleSendMessage}
+                    disabled={!newMessage.trim()}
+                    title="Send message (Enter)"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                     >
-                      {isSendingMessage ? (
-                        <svg
-                          className="loading-spinner"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M21 12a9 9 0 11-6.219-8.56" />
-                        </svg>
-                      ) : (
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M22 2L11 13" />
-                          <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-                        </svg>
-                      )}
-                    </button>
-                    <button className="action-btn" onClick={handleMention}>
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                      >
-                        <path
-                          d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
-                          fill="currentColor"
-                        />
-                      </svg>
-                    </button>
-                    <button className="action-btn" onClick={handleEmoji}>
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                      >
-                        <path
-                          d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
-                          fill="currentColor"
-                        />
-                      </svg>
-                    </button>
-                    <button className="action-btn" onClick={handleFileUpload}>
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                      >
-                        <path
-                          d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
-                          fill="currentColor"
-                        />
-                      </svg>
-                    </button>
-                    <button className="action-btn" onClick={handleVoiceMessage}>
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                      >
-                        <path
-                          d="M8 0C3.58 0 0 3.58 0 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 12c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
-                          fill="currentColor"
-                        />
-                      </svg>
-                    </button>
-                  </div>
+                      <path d="M22 2L11 13" />
+                      <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
