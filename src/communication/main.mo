@@ -178,8 +178,8 @@ actor {
       case (null) {
         return #Err(#NotFound);
       };
-      case (table) {
-
+      case (?table) {
+        // Table exists, continue with chat creation
       };
     };
 
@@ -248,20 +248,87 @@ actor {
     #Ok(chatId);
   };
 
+  // Get or create chat for a table (atomic operation)
+  public shared ({ caller }) func get_or_create_chat(tableId : Nat) : async Result<ChatId, Error> {
+    // Check if table exists first
+    switch (await TableManagement.get_table(tableId)) {
+      case (null) {
+        return #Err(#NotFound);
+      };
+      case (?table) {
+        // Table exists, continue
+      };
+    };
+
+    // Check if table already has a chat
+    switch (chatsByTable.get(tableId)) {
+      case (?existingChatId) {
+        // Chat already exists, return it
+        return #Ok(existingChatId);
+      };
+      case null {
+        // No chat exists, create one
+        // Generate new chat ID
+        let chatId = nextChatId;
+        nextChatId += 1;
+
+        // Create chat info
+        let now = Types.now();
+        let chatInfo : ChatInfo = {
+          id = chatId;
+          tableId = tableId;
+          createdAt = now;
+          var lastMessageAt = now;
+          isActive = true;
+        };
+
+        let messages = HashMap.HashMap<Nat, Message>(0, Nat.equal, Hash.hash);
+        
+        // Create chat
+        let chat : Chat = {
+          info = chatInfo;
+          messages = messages;
+          var nextNat = 0;
+        };
+
+        // Store chat
+        chats.put(chatId, chat);
+        chatsByTable.put(tableId, chatId);
+
+        // Create system message for chat creation
+        let systemMessage : Message = {
+          id = chat.nextNat;
+          chatId = chatId;
+          senderPrincipal = caller;
+          content = #System("Chat created");
+          timestamp = now;
+          isEdited = false;
+          isDeleted = false;
+          replyTo = null;
+        };
+
+        chat.messages.put(chat.nextNat, systemMessage);
+        chat.nextNat += 1;
+
+        return #Ok(chatId);
+      };
+    };
+  };
+
+  // Get chat for a table (query function - for read-only access)
+  public query func get_chat_by_table(tableId : Nat) : async Result<ChatId, Error> {
+    switch (chatsByTable.get(tableId)) {
+      case (?chatId) { #Ok(chatId) };
+      case null { #Err(#NotFound) };
+    };
+  };
+
   // Get chat information
   public query func get_chat_info(chatId : ChatId) : async Result<ChatInfoView, Error> {
     switch (chats.get(chatId)) {
       case (?chat) {
         #Ok(infoToChatInfoView(chat.info));
       };
-      case null { #Err(#NotFound) };
-    };
-  };
-
-  // Get chat for a table
-  public query func get_chat_by_table(tableId : Nat) : async Result<ChatId, Error> {
-    switch (chatsByTable.get(tableId)) {
-      case (?chatId) { #Ok(chatId) };
       case null { #Err(#NotFound) };
     };
   };

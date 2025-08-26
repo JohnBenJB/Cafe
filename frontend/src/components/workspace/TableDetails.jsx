@@ -2,19 +2,19 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { tableManagementService } from "../../services/tableManagement";
 import { authenticationService } from "../../services/authentication";
 import internetIdentityService from "../../services/internetIdentity";
-import MonacoEditor from "./MonacoCollaborativeEditor";
+import MonacoEditor from "./MonacoEditor";
+import { storageService } from "../../services/storageService";
+import { communicationService } from "../../services/communicationService";
 import "./TableDetails.css";
 import caffeineIcon from "/caffeine.jpg";
-import { collaborativeEditorService } from "../../services/collaborativeEditor";
 
 const TableDetails = ({ table, onLeaveTable }) => {
   const [collaborators, setCollaborators] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
 
   // New state for invitations
-  const [allUsers, setAllUsers] = useState([]);
   const [inviteSearch, setInviteSearch] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
   const [pendingSent, setPendingSent] = useState([]); // usernames
@@ -258,109 +258,353 @@ MIT License - see LICENSE file for details`,
   ]);
 
   // Chat interface state
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      author: "WarMachine",
-      content: "Joined #frontend-devs",
-      timestamp: "8:42pm",
-      date: "Saturday, August 16th",
-      type: "system",
-    },
-    {
-      id: 2,
-      author: "WarMachine",
-      content: "Hiii",
-      timestamp: "8:42pm",
-      date: "Today",
-      type: "message",
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [activeTab, setActiveTab] = useState("message");
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [showInviteOverlay, setShowInviteOverlay] = useState(false);
+  const [chatId, setChatId] = useState(null);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [typingUsers, setTypingUsers] = useState([]);
+  const [isTyping, setIsTyping] = useState(false);
   const [loadingStates, setLoadingStates] = useState({
     deleteTable: false,
     leaveTable: false,
     reloadTable: false,
   });
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isChatInitialized, setIsChatInitialized] = useState(false);
 
   // Auto-scroll when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const loadTableDetails = useCallback(async () => {
+  // Load files from storage canister
+  const loadFilesFromStorage = useCallback(async () => {
+    if (!table?.id) return;
+
     try {
-      setIsLoading(true);
+      console.log("🔍 Loading files from storage for table:", table);
+      console.log("🔍 Table ID:", table.id, "Type:", typeof table.id);
+
       const identity = internetIdentityService.getIdentity();
       if (!identity) {
-        throw new Error("No identity available");
+        console.warn("No identity available for loading files");
+        return;
       }
 
-      await tableManagementService.initialize(identity);
-      await authenticationService.initialize(identity);
-
-      // Get current user
-      const principal = identity.getPrincipal().toText();
-      const userResult = await authenticationService.getUserByPrincipal(
-        principal
-      );
-      if (userResult.success && userResult.user) {
-        setCurrentUser(userResult.user);
+      // Initialize storage service if not already done
+      if (!storageService.isReady()) {
+        await storageService.initialize(identity);
       }
 
-      // Get table collaborators
-      const collaboratorsResult =
-        await tableManagementService.getTableCollaborators(table.id);
-      console.log("Table collaborators loaded:", collaboratorsResult);
-      console.log("Table creator:", table.creator);
-      console.log("Table creator type:", typeof table.creator);
+      // Check if table exists in storage
+      const tableExists = await storageService.ensureTableExists(table.id);
+      console.log("🔍 Table exists in storage:", tableExists);
 
-      // Ensure the table creator is included in the collaborators list
-      let allCollaborators = [...collaboratorsResult];
+      let fileIds = [];
 
-      // Check if creator is already in the list
-      const creatorExists = allCollaborators.some(
-        (c) => String(c.principal) === String(table.creator)
-      );
+      if (!tableExists) {
+        console.log(
+          "ℹ️ Table doesn't exist in storage yet, creating sample files..."
+        );
+        // Create sample files for new table
+        try {
+          // Create a welcome file
+          const welcomeFileId = await storageService.createFile(
+            table.id,
+            "welcome.md",
+            "text/markdown",
+            `# Welcome to ${table.title || "Your Table"}!
 
-      if (!creatorExists && table.creator) {
-        // Try to get creator info from all users
-        const allUsers = await authenticationService.getAllUsers();
-        const creatorUser = allUsers.find(
-          (u) => String(u.principal) === String(table.creator)
+This is your collaborative workspace. You can:
+
+- Create new files using the + button
+- Edit existing files
+- Collaborate with team members
+- Save your work automatically
+
+## Getting Started
+
+1. Click the + button to create a new file
+2. Choose your preferred programming language
+3. Start coding and collaborating!
+
+Happy coding! 🚀`
+          );
+
+          // Create a sample JavaScript file
+          const jsFileId = await storageService.createFile(
+            table.id,
+            "main.js",
+            "text/javascript",
+            `// Main application file
+console.log("Hello from Cafe!");
+
+// Your code here
+function greet(name) {
+  return \`Hello, \${name}! Welcome to Cafe.\`;
+}
+
+// Example usage
+console.log(greet("Developer"));`
+          );
+
+          console.log("✅ Created sample files:", {
+            welcomeFileId,
+            jsFileId,
+          });
+
+          // Now try to list files again
+          fileIds = await storageService.listFiles(table.id);
+          console.log("🔍 File IDs after creation:", fileIds);
+        } catch (createError) {
+          console.warn("⚠️ Failed to create sample files:", createError);
+          setFiles([]);
+          return;
+        }
+      } else {
+        // Get file IDs for this table
+        console.log(
+          "🔍 Calling storageService.listFiles with tableId:",
+          table.id
+        );
+        fileIds = await storageService.listFiles(table.id);
+        console.log("🔍 File IDs returned:", fileIds);
+      }
+
+      if (fileIds && fileIds.length > 0) {
+        // Load file content for each file
+        const loadedFiles = await Promise.all(
+          fileIds.map(async (fileId, index) => {
+            try {
+              const content = await storageService.getFileContent(fileId);
+
+              // Since we can't get metadata from the canister, create a basic file object
+              // The user will need to set the name when they first edit the file
+              return {
+                id: fileId,
+                name: `file-${fileId}.txt`, // Default name since we can't get it from canister
+                content: content,
+                language: "plaintext", // Default language
+                isActive: index === 0, // First file is active
+              };
+            } catch (error) {
+              console.warn(`Failed to load file ${fileId}:`, error);
+              return null;
+            }
+          })
         );
 
-        if (creatorUser) {
-          allCollaborators.unshift({
-            principal: table.creator,
-            username: creatorUser.username || "Unknown",
-            email: creatorUser.email || "",
-            isCreator: true,
-          });
+        // Filter out failed loads
+        const validFiles = loadedFiles.filter((f) => f !== null);
+        if (validFiles.length > 0) {
+          setFiles(validFiles);
+          console.log("✅ Loaded", validFiles.length, "files from storage");
+        }
+      } else {
+        console.log("ℹ️ No files found in storage for this table");
+
+        // Create some sample files for new tables
+        try {
+          console.log("🔧 Creating sample files for new table...");
+          const identity = internetIdentityService.getIdentity();
+          if (identity) {
+            // Create a welcome file
+            const welcomeFileId = await storageService.createFile(
+              table.id,
+              "welcome.md",
+              "text/markdown",
+              `# Welcome to ${table.title || "Your Table"}!
+
+This is your collaborative workspace. You can:
+
+- Create new files using the + button
+- Edit existing files
+- Collaborate with team members
+- Save your work automatically
+
+## Getting Started
+
+1. Click the + button to create a new file
+2. Choose your preferred programming language
+3. Start coding and collaborating!
+
+Happy coding! 🚀`
+            );
+
+            // Create a sample JavaScript file
+            const jsFileId = await storageService.createFile(
+              table.id,
+              "main.js",
+              "text/javascript",
+              `// Main application file
+console.log("Hello from Cafe!");
+
+// Your code here
+function greet(name) {
+  return \`Hello, \${name}! Welcome to Cafe.\`;
+}
+
+// Example usage
+console.log(greet("Developer"));`
+            );
+
+            console.log("✅ Created sample files:", {
+              welcomeFileId,
+              jsFileId,
+            });
+
+            // Load the newly created files
+            await loadFilesFromStorage();
+          }
+        } catch (createError) {
+          console.warn("⚠️ Failed to create sample files:", createError);
+          setFiles([]);
         }
       }
-
-      setCollaborators(allCollaborators);
-
-      // Load all users for invite search (only once per table load)
-      const users = await authenticationService.getAllUsers();
-      setAllUsers(users);
-
-      // Load pending sent invites for this table (as usernames)
-      const pending = await tableManagementService.getPendingSentRequests(
-        table.id
-      );
-      setPendingSent(pending);
     } catch (error) {
-      console.error("Error loading table details:", error);
-      setError(error.message);
-    } finally {
-      setIsLoading(false);
+      console.error("❌ Failed to load files from storage:", error);
+      setFiles([]);
     }
   }, [table?.id]);
+
+  // Initialize services and load data
+  useEffect(() => {
+    const initializeServices = async () => {
+      try {
+        setIsLoading(true);
+        const identity = internetIdentityService.getIdentity();
+        if (!identity) {
+          throw new Error("No identity available");
+        }
+
+        await tableManagementService.initialize(identity);
+        await authenticationService.initialize(identity);
+
+        // Get current user
+        const principal = identity.getPrincipal().toText();
+        const userResult = await authenticationService.getUserByPrincipal(
+          principal
+        );
+        if (userResult.success && userResult.user) {
+          setCurrentUser(userResult.user);
+        }
+
+        // Get table collaborators
+        console.log("🔍 Table object:", table);
+        console.log(
+          "🔍 Table creator:",
+          table.creator,
+          "Type:",
+          typeof table.creator
+        );
+        console.log("🔍 Identity available:", !!identity);
+
+        try {
+          const collaboratorsResult =
+            await tableManagementService.getTableCollaborators(table.id);
+          console.log("🔍 Raw collaborators result:", collaboratorsResult);
+
+          if (collaboratorsResult && collaboratorsResult.length > 0) {
+            // Ensure the table creator is included
+            let allCollaborators = [...collaboratorsResult];
+
+            // Check if creator is already in the list
+            const creatorExists = allCollaborators.some(
+              (c) => String(c.principal) === String(table.creator)
+            );
+
+            if (!creatorExists && table.creator) {
+              // Add creator to the list
+              allCollaborators.unshift({
+                principal: String(table.creator), // Convert to string if it's a Principal
+                username: "Table Creator",
+                email: "",
+                github: "",
+                slack: "",
+                tablesCreated: [],
+                tablesJoined: [],
+                identityProvider: "",
+                lastLogin: 0,
+                isVerified: false,
+                hasCompletedSetup: true,
+                isCreator: true,
+              });
+            }
+
+            setCollaborators(allCollaborators);
+            console.log("✅ Loaded collaborators:", allCollaborators);
+          } else {
+            console.log(
+              "ℹ️ No collaborators found for table, adding creator only"
+            );
+            // If no collaborators, at least show the creator
+            if (table.creator) {
+              setCollaborators([
+                {
+                  principal: String(table.creator), // Convert to string if it's a Principal
+                  username: "Table Creator",
+                  email: "",
+                  github: "",
+                  slack: "",
+                  tablesCreated: [],
+                  tablesJoined: [],
+                  identityProvider: "",
+                  lastLogin: 0,
+                  isVerified: false,
+                  hasCompletedSetup: true,
+                  isCreator: true,
+                },
+              ]);
+            } else {
+              setCollaborators([]);
+            }
+          }
+        } catch (collaboratorsError) {
+          console.error("❌ Failed to load collaborators:", collaboratorsError);
+          // Fallback: just show the creator
+          if (table.creator) {
+            setCollaborators([
+              {
+                principal: String(table.creator),
+                username: "Table Creator",
+                email: "",
+                github: "",
+                slack: "",
+                tablesCreated: [],
+                tablesJoined: [],
+                identityProvider: "",
+                lastLogin: 0,
+                isVerified: false,
+                hasCompletedSetup: true,
+                isCreator: true,
+              },
+            ]);
+          } else {
+            setCollaborators([]);
+          }
+        }
+
+        // Load files from storage
+        await loadFilesFromStorage();
+
+        // Initialize chat
+        await initializeChat();
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error("❌ Failed to initialize services:", error);
+        setError(error.message);
+        setIsLoading(false);
+      }
+    };
+
+    if (table?.id) {
+      initializeServices();
+    }
+  }, [table?.id, loadFilesFromStorage]);
 
   // Reload current section state
   const reloadCurrentSection = useCallback(async () => {
@@ -368,7 +612,7 @@ MIT License - see LICENSE file for details`,
       setLoadingStates((prev) => ({ ...prev, reloadTable: true }));
       switch (activeSection) {
         case "table":
-          await loadTableDetails();
+          await loadFilesFromStorage();
           break;
         case "collab":
           // Reload chat messages or any collab-specific data
@@ -380,7 +624,7 @@ MIT License - see LICENSE file for details`,
           // Reload resources if needed
           break;
         case "settings":
-          await loadTableDetails();
+          await loadFilesFromStorage();
           break;
         default:
           break;
@@ -390,13 +634,13 @@ MIT License - see LICENSE file for details`,
     } finally {
       setLoadingStates((prev) => ({ ...prev, reloadTable: false }));
     }
-  }, [activeSection, loadTableDetails]);
+  }, [activeSection, loadFilesFromStorage]);
 
   useEffect(() => {
     if (table) {
-      loadTableDetails();
+      loadFilesFromStorage();
     }
-  }, [loadTableDetails, table]);
+  }, [loadFilesFromStorage, table]);
 
   // Reload section when activeSection changes
   useEffect(() => {
@@ -414,7 +658,7 @@ MIT License - see LICENSE file for details`,
       setLoadingStates((prev) => ({ ...prev, leaveTable: true }));
       await tableManagementService.leaveTable(table.id);
       // Reload current state before leaving
-      await loadTableDetails();
+      await loadFilesFromStorage();
       if (onLeaveTable) {
         onLeaveTable();
       }
@@ -439,7 +683,7 @@ MIT License - see LICENSE file for details`,
       setLoadingStates((prev) => ({ ...prev, deleteTable: true }));
       await tableManagementService.deleteTable(table.id);
       // Reload current state before leaving
-      await loadTableDetails();
+      await loadFilesFromStorage();
       if (onLeaveTable) {
         onLeaveTable();
       }
@@ -468,29 +712,242 @@ MIT License - see LICENSE file for details`,
       String(currentUser.principal) === String(table.creator));
 
   // Chat functions
-  const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      const now = new Date();
-      const timeString = now.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
+  const initializeChat = useCallback(async () => {
+    if (!table?.id) {
+      console.warn("⚠️ No table ID available for chat initialization");
+      return;
+    }
+
+    const identity = internetIdentityService.getIdentity();
+    if (!identity) {
+      console.warn("⚠️ No identity available for chat initialization");
+      return;
+    }
+
+    try {
+      setIsChatInitialized(false);
+      console.log("🔧 Initializing chat for table:", table.id);
+      console.log("🔧 Identity:", identity.getPrincipal().toText());
+      console.log("🔧 Current user:", currentUser);
+
+      // Initialize communication service if not already done
+      if (!communicationService.isReady()) {
+        console.log("🔧 Communication service not ready, initializing...");
+        await communicationService.initialize(identity);
+        console.log("✅ Communication service initialized");
+      } else {
+        console.log("✅ Communication service already ready");
+      }
+
+      // Get or create chat for this table
+      console.log("🔧 Getting/creating chat for table:", table.id);
+      const chatId = await communicationService.getChatByTable(table.id);
+
+      if (!chatId) {
+        throw new Error("Failed to get or create chat ID");
+      }
+
+      setChatId(chatId);
+      console.log("✅ Chat initialized with ID:", chatId);
+
+      // Load existing messages first
+      await loadChatMessages(chatId);
+
+      // Check if this is a new chat by looking at the messages
+      const isNewChat = messages.length === 0;
+
+      if (isNewChat) {
+        try {
+          const welcomeMsg = `Welcome to ${
+            table.title || "this table"
+          }! 🚀\n\nThis is your collaborative workspace. Start chatting with your team members!`;
+          console.log("🔧 Sending welcome message:", welcomeMsg);
+          await communicationService.sendMessage(chatId, welcomeMsg, "System");
+          console.log("✅ Welcome message sent");
+
+          // Reload messages to show the welcome message
+          await syncMessages();
+        } catch (error) {
+          console.warn("⚠️ Failed to send welcome message:", error);
+        }
+      }
+
+      // Send system message that user joined (only if not a new chat)
+      if (!isNewChat) {
+        try {
+          const joinMsg = `${
+            currentUser?.username || "A user"
+          } joined the conversation`;
+          console.log("🔧 Sending join message:", joinMsg);
+          await communicationService.sendMessage(chatId, joinMsg, "System");
+          console.log("✅ Join message sent");
+
+          // Reload messages to show the join message
+          await syncMessages();
+        } catch (error) {
+          console.warn("⚠️ Failed to send join message:", error);
+        }
+      }
+
+      setIsChatInitialized(true);
+      console.log("✅ Chat initialization completed successfully");
+    } catch (error) {
+      console.error("❌ Failed to initialize chat:", error);
+      setError(`Chat initialization failed: ${error.message}`);
+      setIsChatInitialized(false);
+    }
+  }, [table?.id, table?.title, messages.length, currentUser?.username]);
+
+  const loadChatMessages = useCallback(
+    async (chatId) => {
+      if (!chatId) return;
+
+      try {
+        setIsChatLoading(true);
+        console.log("🔧 Loading messages for chat:", chatId);
+
+        const messagesResult = await communicationService.getMessages(
+          chatId,
+          0,
+          100
+        );
+
+        if (messagesResult && messagesResult.items) {
+          console.log("🔍 Raw messages from canister:", messagesResult.items);
+
+          // Convert canister messages to our format
+          const formattedMessages = messagesResult.items.map((msg) => {
+            console.log("🔍 Processing message:", msg);
+
+            const formatted = {
+              id: msg.id,
+              author: msg.senderName || "Unknown User",
+              content:
+                msg.content.Text || msg.content.System || "Unknown content",
+              timestamp: new Date(Number(msg.timestamp)).toLocaleTimeString(
+                "en-US",
+                {
+                  hour: "numeric",
+                  minute: "2-digit",
+                  hour12: true,
+                }
+              ),
+              date: new Date(Number(msg.timestamp)).toLocaleDateString(
+                "en-US",
+                {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                }
+              ),
+              type: msg.content.System ? "system" : "message",
+              senderPrincipal: msg.senderPrincipal,
+              isOwnMessage: msg.senderPrincipal === currentUser?.principal,
+            };
+
+            console.log("🔍 Formatted message:", formatted);
+            return formatted;
+          });
+
+          console.log("🔍 Setting messages state with:", formattedMessages);
+          setMessages(formattedMessages);
+          console.log("✅ Synced", formattedMessages.length, "messages");
+        } else {
+          console.log("⚠️ No messages or invalid structure:", messagesResult);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load chat messages:", error);
+      } finally {
+        setIsChatLoading(false);
+      }
+    },
+    [currentUser?.principal]
+  );
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) {
+      console.warn("⚠️ Cannot send message: No message content");
+      return;
+    }
+
+    if (!chatId) {
+      console.warn("⚠️ Cannot send message: No chat ID available");
+      console.log("🔍 Chat initialization status:", {
+        chatId: chatId,
+        isChatInitialized: isChatInitialized,
+        tableId: table?.id,
+        communicationServiceReady: communicationService.isReady(),
       });
 
-      const newMsg = {
-        id: Date.now(),
-        author: "WarMachine",
-        content: newMessage.trim(),
-        timestamp: timeString,
-        date: "Today",
-        type: "message",
-      };
+      // Try to reinitialize chat if it's not ready
+      if (!isChatInitialized && table?.id) {
+        console.log("🔄 Attempting to reinitialize chat...");
+        try {
+          await initializeChat();
+          // Wait a moment for state to update
+          setTimeout(() => {
+            if (chatId) {
+              console.log("✅ Chat reinitialized, retrying send...");
+              handleSendMessage();
+            } else {
+              alert(
+                "Chat initialization failed. Please refresh the page and try again."
+              );
+            }
+          }, 1000);
+        } catch (error) {
+          console.error("❌ Failed to reinitialize chat:", error);
+          alert(
+            "Failed to initialize chat. Please refresh the page and try again."
+          );
+        }
+      } else {
+        alert(
+          "Chat is not ready. Please wait for initialization or refresh the page."
+        );
+      }
+      return;
+    }
 
-      setMessages((prev) => [...prev, newMsg]);
+    try {
+      setIsSendingMessage(true);
+      console.log("🔧 Sending message:", {
+        message: newMessage.trim(),
+        chatId: chatId,
+        user: currentUser?.username || currentUser?.principal,
+      });
+
+      // Send message to canister
+      const messageId = await communicationService.sendMessage(
+        chatId,
+        newMessage.trim()
+      );
+      console.log("✅ Message sent successfully with ID:", messageId);
+
+      // Clear input immediately
       setNewMessage("");
 
-      // Auto-scroll to bottom after adding new message
+      // Trigger immediate sync to get the latest messages
+      await syncMessages();
+
+      // Auto-scroll to bottom after syncing
       setTimeout(scrollToBottom, 100);
+    } catch (error) {
+      console.error("❌ Failed to send message:", error);
+
+      // Show user-friendly error message
+      const errorMessage = error.message || "Failed to send message";
+      console.error("Error details:", {
+        error: errorMessage,
+        chatId: chatId,
+        message: newMessage.trim(),
+        user: currentUser?.username || currentUser?.principal,
+      });
+
+      // Could add a toast notification here
+      alert(`Failed to send message: ${errorMessage}`);
+    } finally {
+      setIsSendingMessage(false);
     }
   };
 
@@ -498,8 +955,41 @@ MIT License - see LICENSE file for details`,
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    } else if (e.key === "Enter" && e.shiftKey) {
+      // Allow new lines with Shift+Enter
+      return;
+    }
+
+    // Set typing status when user starts typing (for any key)
+    if (!isTyping && chatId && e.target.value.trim()) {
+      setIsTyping(true);
+      communicationService.setTypingStatus(chatId, true);
     }
   };
+
+  const handleMessageInputChange = (e) => {
+    setNewMessage(e.target.value);
+
+    // Set typing status
+    if (!isTyping && chatId && e.target.value.trim()) {
+      setIsTyping(true);
+      communicationService.setTypingStatus(chatId, true);
+    }
+
+    // Clear typing status after a delay
+    if (isTyping) {
+      clearTimeout(typingTimeout.current);
+      typingTimeout.current = setTimeout(() => {
+        setIsTyping(false);
+        if (chatId) {
+          communicationService.setTypingStatus(chatId, false);
+        }
+      }, 1000);
+    }
+  };
+
+  // Typing timeout ref
+  const typingTimeout = useRef(null);
 
   // Button functionality functions
   const handleComingSoon = () => {
@@ -558,7 +1048,7 @@ MIT License - see LICENSE file for details`,
   };
 
   const filteredInvitees = inviteSearch.trim()
-    ? allUsers
+    ? [] // No users loaded for now - can be implemented later
         .filter(
           (u) =>
             (u.username || "")
@@ -592,7 +1082,7 @@ MIT License - see LICENSE file for details`,
       setInviteSearch("");
 
       // Reload current state
-      await loadTableDetails();
+      await loadFilesFromStorage();
     } catch (e) {
       setError(e?.message || "Failed to send invitation");
     } finally {
@@ -621,8 +1111,8 @@ MIT License - see LICENSE file for details`,
       try {
         const identity = internetIdentityService.getIdentity();
         if (!identity) return;
-        await collaborativeEditorService.initialize(identity, table.id);
-        await collaborativeEditorService.saveFileToStorage(fileId, content);
+        await storageService.initialize(identity);
+        await storageService.updateFileContent(fileId, content);
       } catch (e) {
         console.warn("Failed to persist file to storage:", e);
       }
@@ -633,7 +1123,7 @@ MIT License - see LICENSE file for details`,
     // Ensure storage is initialized for this table
     const identity = internetIdentityService.getIdentity();
     if (!identity) throw new Error("No identity available");
-    await collaborativeEditorService.initialize(identity, table.id);
+    await storageService.initialize(identity, table.id);
 
     // Pick MIME based on extension (simple)
     const lower = String(name).toLowerCase();
@@ -647,7 +1137,7 @@ MIT License - see LICENSE file for details`,
       ? "text/html"
       : "text/plain";
 
-    const fileId = await collaborativeEditorService.createFile(name, mime, "");
+    const fileId = await storageService.createFile(table.id, name, mime, "");
 
     const language = guessLanguage(name);
     const created = {
@@ -679,6 +1169,161 @@ MIT License - see LICENSE file for details`,
     if (lower.endsWith(".go")) return "go";
     if (lower.endsWith(".java")) return "java";
     return "plaintext";
+  };
+
+  // Check for typing users periodically
+  useEffect(() => {
+    if (!chatId) return;
+
+    const checkTypingUsers = async () => {
+      try {
+        const typing = await communicationService.getTypingUsers(chatId);
+        setTypingUsers(typing);
+      } catch (error) {
+        console.warn("Failed to get typing users:", error);
+      }
+    };
+
+    const interval = setInterval(checkTypingUsers, 2000);
+    return () => clearInterval(interval);
+  }, [chatId]);
+
+  // Add typing indicator below messages
+  const renderTypingIndicator = () => {
+    if (typingUsers.length === 0) return null;
+
+    const currentUserPrincipal = currentUser?.principal;
+    const otherTypingUsers = typingUsers.filter(
+      (p) => p !== currentUserPrincipal
+    );
+
+    if (otherTypingUsers.length === 0) return null;
+
+    return (
+      <div className="typing-indicator">
+        <div className="typing-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <span className="typing-text">
+          {otherTypingUsers.length === 1
+            ? "Someone"
+            : `${otherTypingUsers.length} people`}{" "}
+          is typing...
+        </span>
+      </div>
+    );
+  };
+
+  // Real-time message synchronization
+  const syncMessages = useCallback(async () => {
+    if (!chatId) return;
+
+    try {
+      console.log("🔄 Syncing messages...");
+      const messagesResult = await communicationService.getMessages(
+        chatId,
+        0,
+        100
+      );
+
+      if (messagesResult && messagesResult.items) {
+        console.log("🔍 Raw messages from canister:", messagesResult.items);
+
+        // Convert canister messages to our format
+        const formattedMessages = messagesResult.items.map((msg) => {
+          console.log("🔍 Processing message:", msg);
+
+          const formatted = {
+            id: msg.id,
+            author: msg.senderName || "Unknown User",
+            content:
+              msg.content.Text || msg.content.System || "Unknown content",
+            timestamp: new Date(Number(msg.timestamp)).toLocaleTimeString(
+              "en-US",
+              {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              }
+            ),
+            date: new Date(Number(msg.timestamp)).toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            }),
+            type: msg.content.System ? "system" : "message",
+            senderPrincipal: msg.senderPrincipal,
+            isOwnMessage: msg.senderPrincipal === currentUser?.principal,
+          };
+
+          console.log("🔍 Formatted message:", formatted);
+          return formatted;
+        });
+
+        console.log("🔍 Setting messages state with:", formattedMessages);
+        setMessages(formattedMessages);
+        console.log("✅ Synced", formattedMessages.length, "messages");
+      } else {
+        console.log("⚠️ No messages or invalid structure:", messagesResult);
+      }
+    } catch (error) {
+      console.error("❌ Failed to sync messages:", error);
+    }
+  }, [chatId, currentUser?.principal]);
+
+  // Periodic message synchronization for real-time updates
+  useEffect(() => {
+    if (!chatId) return;
+
+    // Initial sync
+    syncMessages();
+
+    // Set up periodic sync every 3 seconds
+    const syncInterval = setInterval(syncMessages, 3000);
+
+    return () => clearInterval(syncInterval);
+  }, [chatId, syncMessages]);
+
+  // Test function to debug communication service
+  const testCommunicationService = async () => {
+    if (!chatId) {
+      alert("No chat ID available");
+      return;
+    }
+
+    try {
+      console.log("🧪 Testing communication service...");
+      console.log("🧪 Chat ID:", chatId);
+      console.log("🧪 Service ready:", communicationService.isReady());
+
+      // Try to send a test message
+      const testMessage = "🧪 Test message - " + new Date().toISOString();
+      console.log("🧪 Sending test message:", testMessage);
+
+      const messageId = await communicationService.sendMessage(
+        chatId,
+        testMessage
+      );
+      console.log("✅ Test message sent successfully with ID:", messageId);
+
+      // Try to get messages
+      const messagesResult = await communicationService.getMessages(
+        chatId,
+        0,
+        10
+      );
+      console.log("✅ Test getMessages result:", messagesResult);
+
+      alert("Test successful! Check console for details.");
+
+      // Reload messages to show the test message
+      await syncMessages();
+    } catch (error) {
+      console.error("❌ Test failed:", error);
+      alert(`Test failed: ${error.message}`);
+    }
   };
 
   if (isLoading) {
@@ -1240,41 +1885,102 @@ MIT License - see LICENSE file for details`,
 
               {/* Chat Messages */}
               <div className="chat-messages" ref={messagesContainerRef}>
-                {messages.map((message, index) => (
-                  <React.Fragment key={message.id}>
-                    {(index === 0 ||
-                      messages[index - 1].date !== message.date) && (
-                      <div className="message-separator">
-                        <span>{message.date}</span>
-                      </div>
-                    )}
-
-                    <div className="message">
-                      <div className="message-avatar">
-                        <div className="avatar-initial">
-                          {message.author.charAt(0)}
-                        </div>
-                      </div>
-                      <div className="message-content">
-                        <div className="message-header">
-                          <span className="message-author">
-                            {message.author}
-                          </span>
-                          <span className="message-time">
-                            {message.timestamp}
-                          </span>
-                        </div>
-                        <div className="message-text">{message.content}</div>
-                      </div>
+                {isChatLoading ? (
+                  <div className="chat-loading">
+                    <div className="loading-spinner"></div>
+                    <p>Loading messages...</p>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="no-messages">
+                    <div className="no-messages-icon">
+                      <svg
+                        width="48"
+                        height="48"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <path
+                          d="M8 12h8M8 16h5M12 8h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.98L3 20l1.98-4.745A9.863 9.863 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
                     </div>
-                  </React.Fragment>
-                ))}
+                    <h3>No messages yet</h3>
+                    <p>Start the conversation by sending a message!</p>
+                  </div>
+                ) : (
+                  messages.map((message, index) => (
+                    <React.Fragment key={message.id}>
+                      {(index === 0 ||
+                        messages[index - 1].date !== message.date) && (
+                        <div className="message-separator">
+                          <span>{message.date}</span>
+                        </div>
+                      )}
+
+                      <div
+                        className={`message ${
+                          message.isOwnMessage ? "own-message" : ""
+                        }`}
+                      >
+                        <div className="message-avatar">
+                          <div className="avatar-initial">
+                            {message.author.charAt(0)}
+                          </div>
+                        </div>
+                        <div className="message-content">
+                          <div className="message-header">
+                            <span className="message-author">
+                              {message.isOwnMessage ? "You" : message.author}
+                            </span>
+                            <span className="message-time">
+                              {message.timestamp}
+                            </span>
+                          </div>
+                          <div className="message-text">{message.content}</div>
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  ))
+                )}
+                {/* Typing indicator */}
+                {renderTypingIndicator()}
                 {/* Scroll target for auto-scrolling */}
                 <div ref={messagesEndRef} />
               </div>
 
               {/* Message Input */}
               <div className="message-input-container">
+                {/* Test button for debugging */}
+                <div className="debug-tools">
+                  <button
+                    onClick={testCommunicationService}
+                    className="test-btn"
+                    title="Test communication service"
+                  >
+                    🧪 Test Communication
+                  </button>
+                  <button
+                    onClick={() => initializeChat()}
+                    className="test-btn init-btn"
+                    title="Initialize chat manually"
+                  >
+                    🔄 Init Chat
+                  </button>
+                  <span className="debug-info">
+                    Chat ID: {chatId || "None"} | Service Ready:{" "}
+                    {communicationService.isReady() ? "✅" : "❌"} | Chat Init:{" "}
+                    {isChatInitialized ? "✅" : "❌"}
+                  </span>
+                  <span className="debug-info">
+                    Messages: {messages.length} | Last Update:{" "}
+                    {new Date().toLocaleTimeString()}
+                  </span>
+                </div>
+
                 <div className="formatting-toolbar">
                   <button
                     className="format-btn"
@@ -1348,27 +2054,47 @@ MIT License - see LICENSE file for details`,
                     placeholder="Type your message here..."
                     rows="1"
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={handleMessageInputChange}
                     onKeyPress={handleKeyPress}
                   />
                   <div className="input-actions">
                     <button
-                      className="action-btn primary"
+                      className="action-btn primary send-btn"
                       onClick={handleSendMessage}
+                      disabled={
+                        !newMessage.trim() || !chatId || isSendingMessage
+                      }
+                      title="Send message (Enter)"
                     >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                      >
-                        <path
-                          d="M8 1v14M1 8h14"
+                      {isSendingMessage ? (
+                        <svg
+                          className="loading-spinner"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
-                        />
-                      </svg>
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 12a9 9 0 11-6.219-8.56" />
+                        </svg>
+                      ) : (
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M22 2L11 13" />
+                          <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+                        </svg>
+                      )}
                     </button>
                     <button className="action-btn" onClick={handleMention}>
                       <svg
