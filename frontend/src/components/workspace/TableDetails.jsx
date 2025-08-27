@@ -15,6 +15,7 @@ const TableDetails = ({ table, onLeaveTable }) => {
   // New state for invitations
   const [inviteSearch, setInviteSearch] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState([]); // Add this back
   const [pendingSent, setPendingSent] = useState([]); // usernames
   const [sendingTo, setSendingTo] = useState(""); // principal currently being invited
   const [activeSection, setActiveSection] = useState("table");
@@ -491,8 +492,68 @@ Feel free to contribute to this project!`,
     handleComingSoon();
   };
 
+  const loadAvailableUsers = async () => {
+    try {
+      const identity = internetIdentityService.getIdentity();
+      if (!identity) {
+        console.warn("No identity available for loading users");
+        return;
+      }
+
+      await tableManagementService.initialize(identity);
+      await authenticationService.initialize(identity);
+
+      // Get all users from authentication service
+      const allUsers = await authenticationService.getAllUsers();
+
+      // Get current table collaborators
+      const collaboratorsResult =
+        await tableManagementService.getTableCollaborators(table.id);
+
+      if (collaboratorsResult && collaboratorsResult.length > 0) {
+        // Filter out users who are already collaborators
+        const collaboratorPrincipals = collaboratorsResult.map(
+          (c) => c.principal
+        );
+        const availableUsers = allUsers.filter(
+          (user) => !collaboratorPrincipals.includes(user.principal)
+        );
+        setAvailableUsers(availableUsers);
+        console.log("✅ Available users loaded:", availableUsers);
+      } else {
+        // If no collaborators, all users are available
+        setAvailableUsers(allUsers);
+        console.log("✅ All users available (no collaborators):", allUsers);
+      }
+    } catch (error) {
+      console.error("❌ Failed to load available users:", error);
+      setError("Failed to load users for invitation");
+    }
+  };
+
+  const loadPendingSentInvitations = async () => {
+    try {
+      const identity = internetIdentityService.getIdentity();
+      if (!identity) {
+        console.warn("No identity available for loading pending invitations");
+        return;
+      }
+
+      await tableManagementService.initialize(identity);
+      const sentRequests = await tableManagementService.getPendingSentRequests(
+        table.id
+      );
+
+      // The backend returns usernames directly, so we can use them as-is
+      setPendingSent(sentRequests);
+      console.log("✅ Pending sent invitations loaded:", sentRequests);
+    } catch (error) {
+      console.error("❌ Failed to load pending sent invitations:", error);
+    }
+  };
+
   const filteredInvitees = inviteSearch.trim()
-    ? [] // No users loaded for now - can be implemented later
+    ? availableUsers
         .filter(
           (u) =>
             (u.username || "")
@@ -518,6 +579,7 @@ Feel free to contribute to this project!`,
       setInviteLoading(true);
       setSendingTo(user.principal);
       await tableManagementService.requestJoinTable(user.principal, table.id);
+
       // Update pending list by username if available
       const username = user.username || user.principal?.toString?.() || "User";
       setPendingSent((prev) =>
@@ -525,9 +587,15 @@ Feel free to contribute to this project!`,
       );
       setInviteSearch("");
 
-      // Reload current state
-      // No need to reload files since they're managed locally
+      // Reload available users to exclude the invited user
+      await loadAvailableUsers();
+
+      // Reload pending sent invitations to get the latest state
+      await loadPendingSentInvitations();
+
+      console.log("✅ Invitation sent successfully to:", username);
     } catch (e) {
+      console.error("❌ Failed to send invitation:", e);
       setError(e?.message || "Failed to send invitation");
     } finally {
       setInviteLoading(false);
@@ -957,16 +1025,27 @@ Feel free to contribute to this project!`,
             <div className="table-actions">
               {isCreator && (
                 <button
-                  onClick={() => setShowInviteOverlay(true)}
+                  onClick={async () => {
+                    setShowInviteOverlay(true);
+                    await loadAvailableUsers();
+                    await loadPendingSentInvitations();
+                  }}
                   className="invite-btn"
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path
-                      d="M8 1v14M1 8h14"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="m22 2-7 7" />
+                    <path d="m15 2 7 7-7 7" />
                   </svg>
                   Invite
                 </button>
