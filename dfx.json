@@ -1,18 +1,43 @@
 {
   "canisters": {
-    "Cafe_backend": {
-      "main": "src/Cafe_backend/main.mo",
-      "type": "motoko"
+    "authentication": {
+      "type": "motoko",
+      "main": "src/authentication/main.mo",
+      "dependencies": ["internet_identity"]
     },
-    "Cafe_frontend": {
-      "dependencies": [
-        "Cafe_backend"
-      ],
-      "source": [
-        "src/Cafe_frontend/dist"
-      ],
+    "table_management": {
+      "type": "motoko",
+      "main": "src/table_management/main.mo",
+      "dependencies": ["authentication", "internet_identity"]
+    },
+    "storage": {
+      "type": "motoko",
+      "main": "src/storage/main.mo",
+      "dependencies": ["authentication", "internet_identity", "table_management"]
+    },
+    "communication": {
+      "type": "motoko",
+      "main": "src/communication/main.mo",
+      "dependencies": ["storage", "authentication", "internet_identity", "table_management"]
+    },
+
+    "internet_identity": {
+      "type": "custom",
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz",
+      "remote": {
+        "id": {
+          "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+        }
+      },
+      "frontend": {}
+    },
+
+    "frontend": {
+      "dependencies": ["authentication", "table_management", "storage"],
+      "source": ["frontend/dist"],
       "type": "assets",
-      "workspace": "Cafe_frontend"
+      "workspace": "frontend"
     }
   },
   "defaults": {

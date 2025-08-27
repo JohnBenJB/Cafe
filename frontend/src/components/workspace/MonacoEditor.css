@@ -1,0 +1,432 @@
+.monaco-editor-container {
+  display: flex;
+  height: 100%;
+  min-height: 600px;
+  background: #1e1e1e;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Left Sidebar */
+.editor-sidebar {
+  width: 280px;
+  background: #2d2d30;
+  border-right: 1px solid #3e3e42;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100%;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #3e3e42;
+  background: #252526;
+}
+
+.sidebar-header h3 {
+  margin: 0;
+  color: #cccccc;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.add-file-btn {
+  background: transparent;
+  border: none;
+  color: #cccccc;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.add-file-btn:hover {
+  background: #3e3e42;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.add-file-btn:active {
+  transform: scale(0.95);
+}
+
+/* File Explorer */
+.file-explorer {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.file-explorer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid #3e3e42;
+  background: #252526;
+}
+
+.file-explorer-header h3 {
+  margin: 0;
+  color: #cccccc;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* New File Creation Form */
+.new-file-form {
+  padding: 12px 16px;
+  border-bottom: 1px solid #3e3e42;
+  background: #2d2d30;
+}
+
+.new-file-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: #3e3e42;
+  border: 1px solid #5a5a5a;
+  border-radius: 4px;
+  color: #cccccc;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.new-file-input:focus {
+  outline: none;
+  border-color: #007acc;
+  background: #3e3e42;
+}
+
+.new-file-input::placeholder {
+  color: #888888;
+}
+
+.new-file-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.new-file-submit,
+.new-file-cancel {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.new-file-submit {
+  background: #007acc;
+  color: white;
+}
+
+.new-file-submit:hover:not(:disabled) {
+  background: #005a9e;
+}
+
+.new-file-submit:disabled {
+  background: #5a5a5a;
+  color: #888888;
+  cursor: not-allowed;
+}
+
+.new-file-cancel {
+  background: #5a5a5a;
+  color: #cccccc;
+}
+
+.new-file-cancel:hover {
+  background: #6a6a6a;
+}
+
+.file-list {
+  flex: 1;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #cccccc;
+  border-radius: 4px;
+  margin: 2px 8px;
+}
+
+.file-item:hover {
+  background: #3e3e42;
+  color: #ffffff;
+}
+
+.file-item.active {
+  background: #007acc;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 122, 204, 0.3);
+  font-weight: 500;
+}
+
+.file-item.active:hover {
+  background: #005a9e;
+  color: white;
+}
+
+.file-icon {
+  font-size: 16px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.file-name {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid #3e3e42;
+  background: #252526;
+}
+
+.sidebar-footer .btn-primary {
+  margin-bottom: 8px;
+}
+
+.sidebar-footer .btn-primary:last-child {
+  margin-bottom: 0;
+}
+
+.language-selector {
+  margin-bottom: 12px;
+}
+
+.language-selector label {
+  display: block;
+  color: #cccccc;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.language-dropdown {
+  width: 100%;
+  padding: 6px 12px;
+  background: #3e3e42;
+  border: 1px solid #5a5a5a;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.language-dropdown:hover {
+  background: #4a4a4e;
+  border-color: #6a6a6a;
+}
+
+.language-dropdown:focus {
+  outline: none;
+  border-color: #007acc;
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+}
+
+.btn-primary:hover {
+  background: #005a9e;
+}
+
+/* Main Editor Area */
+.editor-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+  min-height: 600px;
+}
+
+.editor-header {
+  padding: 12px 16px;
+  background: #2d2d30;
+  border-bottom: 1px solid #3e3e42;
+  flex-shrink: 0;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-info .file-name {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.editor-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+  min-height: 500px;
+}
+
+.editor-footer {
+  padding: 8px 16px;
+  background: #2d2d30;
+  border-top: 1px solid #3e3e42;
+  flex-shrink: 0;
+}
+
+.file-details {
+  display: flex;
+  gap: 16px;
+  color: #cccccc;
+  font-size: 12px;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.detail-item:not(:last-child)::after {
+  content: "•";
+  margin-left: 8px;
+  color: #5a5a5a;
+}
+
+.no-file-selected {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #cccccc;
+  font-size: 16px;
+}
+
+/* Monaco Editor overrides - Simple and targeted */
+.monaco-editor {
+  border-radius: 0;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.monaco-editor .overflow-guard {
+  border-radius: 0;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.monaco-editor .margin {
+  background-color: #1e1e1e !important;
+}
+
+.monaco-editor .line-numbers {
+  background-color: #1e1e1e !important;
+}
+
+.monaco-editor .line-numbers .line-number {
+  color: #858585 !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+/* Try to fix line number alignment */
+.monaco-editor .margin-view-overlays {
+  width: 60px !important;
+}
+
+.monaco-editor .margin-view-overlays .cgmr {
+  width: 60px !important;
+}
+
+.monaco-editor .view-lines {
+  font-family: "JetBrains Mono", "Consolas", "Monaco", "Courier New", monospace !important;
+  line-height: 20px !important;
+  font-size: 14px !important;
+}
+
+/* Monaco Editor Specific Styles */
+.monaco-editor {
+  background: #1e1e1e !important;
+  color: #cccccc !important;
+}
+
+.monaco-editor .margin {
+  background: #1e1e1e !important;
+}
+
+.monaco-editor .monaco-editor-background {
+  background: #1e1e1e !important;
+}
+
+.monaco-editor .inputarea {
+  background: #1e1e1e !important;
+}
+
+/* Ensure the editor container has proper dimensions */
+.editor-content .monaco-editor {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Fix any potential white background issues */
+.editor-content {
+  background: #1e1e1e !important;
+}
+
+/* Ensure proper editor layout */
+.monaco-editor-container .monaco-editor {
+  border-radius: 0;
+  overflow: hidden;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .editor-sidebar {
+    width: 240px;
+  }
+
+  .sidebar-header h3 {
+    font-size: 14px;
+  }
+
+  .file-item {
+    padding: 6px 12px;
+  }
+
+  .file-name {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .editor-sidebar {
+    width: 200px;
+  }
+
+  .sidebar-header {
+    padding: 12px;
+  }
+
+  .sidebar-footer {
+    padding: 12px;
+  }
+}

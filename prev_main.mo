@@ -4,10 +4,12 @@ import Iter "mo:base/Iter";
 import Array "mo:base/Array";
 import Hash "mo:base/Hash";
 import Nat "mo:base/Nat";
+import Nat32 "mo:base/Nat32";
 import Option "mo:base/Option";
 
 //actor
 actor {
+persistent actor {
   // User record
   public type User = {
     id : Nat;
@@ -23,7 +25,7 @@ actor {
   public type Table = {
     id : Nat;
     title : Text;
-    seats : [Nat]; // List of user ids
+    tableCollaborators : [Nat]; // List of user ids
   };
 
   // Helper type for join requests
@@ -48,20 +50,40 @@ actor {
   private stable var tablesEntries : [(Nat, Table)] = [];
   private stable var pendingRequestsEntries : [((Nat, Nat), Principal)] = [];
 
+  // Custom hash function for tuple keys
+  func customHash(n : Nat) : Hash.Hash {
+  // We'll fold the Nat down into 64 bits then mix into 32 bits.
+  // Avoids direct conversion traps by using mod/div with 2^32 in safe order,
+  // and uses only Nat arithmetic (no trapped conversions).
+  let mask32 : Nat = 0x1_0000_0000; // 2^32
+
+  // low is n mod 2^32, high is n / 2^32
+  let low : Nat = n % mask32;
+  let high : Nat = n / mask32;
+
+  // mix low and high into a 64-bit-ish accumulator (still a Nat)
+  var acc : Nat = (low * 0x9E3779B9) + (high * 0x85EBCA6B) + 0xC2B2AE35;
+
+  acc := acc + ((acc / 0x1_0000) % mask32);
+
+  // reduce to 32-bit range (Hash.Hash is an integer type; keep it within 0 .. 2^32-1)
+  Nat32.fromNat(acc % mask32);
+};
+
   // Initialize TrieMaps
-  private let usersByPrincipal = TrieMap.fromEntries<Principal, User>(
+  private transient let usersByPrincipal = TrieMap.fromEntries<Principal, User>(
     usersEntries.vals(), Principal.equal, Principal.hash
   );
   
-  private let usersById = TrieMap.fromEntries<Nat, User>(
-    usersByIdEntries.vals(), Nat.equal, Hash.hash
+  private transient let usersById = TrieMap.fromEntries<Nat, User>(
+    usersByIdEntries.vals(), Nat.equal, customHash
   );
   
-  private let tablesById = TrieMap.fromEntries<Nat, Table>(
-    tablesEntries.vals(), Nat.equal, Hash.hash
+  private transient let tablesById = TrieMap.fromEntries<Nat, Table>(
+    tablesEntries.vals(), Nat.equal, customHash
   );
   
-  // Custom hash function for tuple keys
+
   private func hashTuple(t : (Nat, Nat)) : Hash.Hash {
     Hash.hash(t.0) ^ Hash.hash(t.1)
   };
@@ -70,7 +92,7 @@ actor {
     a.0 == b.0 and a.1 == b.1
   };
   
-  private let pendingJoinRequests = TrieMap.fromEntries<(Nat, Nat), Principal>(
+  private transient let pendingJoinRequests = TrieMap.fromEntries<(Nat, Nat), Principal>(
     pendingRequestsEntries.vals(), equalTuple, hashTuple
   );
 
@@ -195,7 +217,7 @@ actor {
         let table : Table = {
           id = tableId;
           title = title;
-          seats = [user.id];
+          tableCollaborators = [user.id];
         };
         
         tablesById.put(tableId, table);
@@ -309,14 +331,14 @@ actor {
         usersByPrincipal.put(caller, updatedUser);
         usersById.put(user.id, updatedUser);
         
-        // Remove caller's userId from the table's seats
+        // Remove caller's userId from the table's tableCollaborators
         switch (tablesById.get(tableId)) {
           case null "Table not found.";
           case (?table) {
             let updatedTable : Table = {
               id = table.id;
               title = table.title;
-              seats = Array.filter<Nat>(table.seats, func (uid) = uid != user.id);
+              tableCollaborators = Array.filter<Nat>(table.tableCollaborators, func (uid) = uid != user.id);
             };
             tablesById.put(tableId, updatedTable);
             "Left the table successfully."
@@ -344,7 +366,7 @@ actor {
         };
         
         // Check if user is already in the table
-        if (arrayContains<Nat>(table.seats, userId, Nat.equal)) {
+        if (arrayContains<Nat>(table.tableCollaborators, userId, Nat.equal)) {
           return "User is already in this table.";
         };
         
@@ -372,18 +394,18 @@ actor {
         switch (pendingJoinRequests.get((userId, tableId))) {
           case null "No pending request found.";
           case (?inviter) {
-            // Add user to table's seats
+            // Add user to table's tableCollaborators
             switch (tablesById.get(tableId)) {
               case null "Table not found.";
               case (?table) {
-                if (arrayContains<Nat>(table.seats, userId, Nat.equal)) {
+                if (arrayContains<Nat>(table.tableCollaborators, userId, Nat.equal)) {
                   return "Already joined this table.";
                 };
                 
                 let updatedTable : Table = {
                   id = table.id;
                   title = table.title;
-                  seats = Array.append(table.seats, [userId]);
+                  tableCollaborators = Array.append(table.tableCollaborators, [userId]);
                 };
                 tablesById.put(tableId, updatedTable);
                 
@@ -475,7 +497,7 @@ actor {
       case null [];
       case (?table) {
         Array.mapFilter<Nat, User>(
-          table.seats,
+          table.tableCollaborators,
           func(userId) = usersById.get(userId)
         )
       }

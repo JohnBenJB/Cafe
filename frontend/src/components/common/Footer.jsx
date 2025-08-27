@@ -1,11 +1,9 @@
-import React from 'react';
+import React from "react";
 
 const Footer = () => {
   const footerLinks = {
-    Product: ['Features', 'Pricing', 'Documentation', 'API'],
-    Company: ['About', 'Blog', 'Careers', 'Contact'],
-    Community: ['Discord', 'Twitter', 'GitHub', 'Forum'],
-    Legal: ['Privacy', 'Terms', 'Security', 'Status']
+    Product: ["Documentation", "API", "Status"],
+    Community: ["Discord", "Twitter", "GitHub", "Forum"],
   };
 
   return (
@@ -22,10 +20,11 @@ const Footer = () => {
               </span>
             </div>
             <p className="footer-description">
-              Decentralized, AI-powered collaboration space for developers. Built on ICP.
+              Decentralized, AI-powered collaboration space for developers.
+              Built on ICP.
             </p>
           </div>
-          
+
           <div className="footer-links">
             {Object.entries(footerLinks).map(([category, links]) => (
               <div key={category} className="footer-column">
@@ -39,9 +38,12 @@ const Footer = () => {
             ))}
           </div>
         </div>
-        
+
         <div className="footer-bottom">
-          <p>&copy; 2025 Cafe. All rights reserved. Brewing the future of developer productivity.</p>
+          <p>
+            &copy; 2025 Cafe. All rights reserved. Brewing the future of
+            developer productivity.
+          </p>
         </div>
       </div>
     </footer>
